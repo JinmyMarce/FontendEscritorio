@@ -1,0 +1,35 @@
+[
+    {
+        "id": 1,
+        "codigo": "CLI001",
+        "nombre": "Juan Pérez",
+        "email": "juan.perez@email.com",
+        "telefono": "555-0101",
+        "direccion": "Calle Principal 123",
+        "tipo": "Regular",
+        "puntos": 1500,
+        "estado": "Inactivo"
+    },
+    {
+        "id": 2,
+        "codigo": "CLI002",
+        "nombre": "María García",
+        "email": "maria.garcia@email.com",
+        "telefono": "555-0102",
+        "direccion": "Av. Central 456",
+        "tipo": "Regular",
+        "puntos": 500,
+        "estado": "Inactivo"
+    },
+    {
+        "id": 3,
+        "codigo": "CLI003",
+        "nombre": "Carlos López",
+        "email": "carlos.lopez@email.com",
+        "telefono": "555-0103",
+        "direccion": "Plaza Mayor 789",
+        "tipo": "Premium",
+        "puntos": 2000,
+        "estado": "Activo"
+    }
+]
