@@ -1,7 +1,8 @@
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
-import requests
+from config import INVENTORY_ENDPOINTS
+from utils import APIHandler
 import os
 
 class CrearProductoFrame(ctk.CTkFrame):
@@ -68,39 +69,19 @@ class CrearProductoFrame(ctk.CTkFrame):
         self.cargar_categorias()
 
     def cargar_categorias(self):
-        url_categorias = "http://localhost:8000/api/v1/categorias"
+        url_categorias = INVENTORY_ENDPOINTS['categories']
         try:
-            response = requests.get(url_categorias)
-            print("Respuesta raw categorías:", response.text)
-            print("Tipo de respuesta JSON:", type(response.json()))
-
-            if response.status_code == 200:
-                json_data = response.json()
-
+            response = APIHandler.make_request('get', url_categorias)
+            if response['status_code'] == 200:
+                json_data = response['data']
                 # Detectar si el JSON tiene la lista dentro de "data" o si es la lista directamente
-                if isinstance(json_data, dict) and "data" in json_data:
-                    self.categorias_completas = json_data["data"]
-                elif isinstance(json_data, list):
-                    self.categorias_completas = json_data
-                else:
-                    raise ValueError("Estructura JSON inesperada: no se encontró la lista de categorías")
-
-                print("Categorias completas:", self.categorias_completas)
-
-                nombres_categorias = [cat['nombre'] for cat in self.categorias_completas]
-                if nombres_categorias:
-                    self.combo_categoria.configure(values=nombres_categorias)
-                    self.categoria_var.set(nombres_categorias[0])
-                else:
-                    self.combo_categoria.configure(values=["No hay categorías"])
-                    self.categoria_var.set("No hay categorías")
+                categorias = json_data.get('data', json_data) if isinstance(json_data, dict) else json_data
+                self.categorias_completas = categorias
+                self.combo_categoria.configure(values=[c['nombre'] for c in categorias])
+                self.categoria_var.set(categorias[0]['nombre'] if categorias else "Sin categorías")
             else:
-                messagebox.showerror("Error", f"No se pudieron cargar las categorías (status {response.status_code})")
                 self.combo_categoria.configure(values=["Error al cargar"])
-                self.categoria_var.set("Error al cargar")
-
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudieron cargar las categorías: {e}")
             self.combo_categoria.configure(values=["Error al cargar"])
             self.categoria_var.set("Error al cargar")
 
@@ -110,7 +91,7 @@ class CrearProductoFrame(ctk.CTkFrame):
             messagebox.showinfo("Imagen seleccionada", f"Archivo: {os.path.basename(self.ruta_imagen)}")
 
     def guardar_producto(self):
-        url_api = "http://localhost:8000/api/v1/productos"
+        url_api = INVENTORY_ENDPOINTS['register']
 
         if not self.ruta_imagen:
             messagebox.showerror("Error", "Debes seleccionar una imagen.")
@@ -145,7 +126,7 @@ class CrearProductoFrame(ctk.CTkFrame):
         try:
             with open(self.ruta_imagen, 'rb') as img:
                 files = {'imagen': img}
-                response = requests.post(url_api, data=data, files=files)
+                response = APIHandler.make_request('post', url_api, data=data, files=files)
 
             print("Código de respuesta:", response.status_code)
             print("Contenido bruto:", response.text)
@@ -231,39 +212,19 @@ def abrir_ventana_crear_producto():
     # -------- Función para cargar categorías desde API --------
     def cargar_categorias():
         global categorias_completas
-        url_categorias = "http://localhost:8000/api/v1/categorias"
+        url_categorias = INVENTORY_ENDPOINTS['categories']
         try:
-            response = requests.get(url_categorias)
-            print("Respuesta raw categorías:", response.text)
-            print("Tipo de respuesta JSON:", type(response.json()))
-
-            if response.status_code == 200:
-                json_data = response.json()
-
+            response = APIHandler.make_request('get', url_categorias)
+            if response['status_code'] == 200:
+                json_data = response['data']
                 # Detectar si el JSON tiene la lista dentro de "data" o si es la lista directamente
-                if isinstance(json_data, dict) and "data" in json_data:
-                    categorias_completas = json_data["data"]
-                elif isinstance(json_data, list):
-                    categorias_completas = json_data
-                else:
-                    raise ValueError("Estructura JSON inesperada: no se encontró la lista de categorías")
-
-                print("Categorias completas:", categorias_completas)
-
-                nombres_categorias = [cat['nombre'] for cat in categorias_completas]
-                if nombres_categorias:
-                    combo_categoria.configure(values=nombres_categorias)
-                    categoria_var.set(nombres_categorias[0])
-                else:
-                    combo_categoria.configure(values=["No hay categorías"])
-                    categoria_var.set("No hay categorías")
+                categorias = json_data.get('data', json_data) if isinstance(json_data, dict) else json_data
+                categorias_completas = categorias
+                combo_categoria.configure(values=[c['nombre'] for c in categorias])
+                categoria_var.set(categorias[0]['nombre'] if categorias else "Sin categorías")
             else:
-                messagebox.showerror("Error", f"No se pudieron cargar las categorías (status {response.status_code})")
                 combo_categoria.configure(values=["Error al cargar"])
-                categoria_var.set("Error al cargar")
-
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudieron cargar las categorías: {e}")
             combo_categoria.configure(values=["Error al cargar"])
             categoria_var.set("Error al cargar")
 
@@ -285,7 +246,7 @@ def abrir_ventana_crear_producto():
 
     # -------- ENVIAR A API --------
     def guardar_producto():
-        url_api = "http://localhost:8000/api/v1/productos"
+        url_api = INVENTORY_ENDPOINTS['register']
 
         if not ruta_imagen:
             messagebox.showerror("Error", "Debes seleccionar una imagen.")
@@ -320,7 +281,7 @@ def abrir_ventana_crear_producto():
         try:
             with open(ruta_imagen, 'rb') as img:
                 files = {'imagen': img}
-                response = requests.post(url_api, data=data, files=files)
+                response = APIHandler.make_request('post', url_api, data=data, files=files)
 
             print("Código de respuesta:", response.status_code)
             print("Contenido bruto:", response.text)

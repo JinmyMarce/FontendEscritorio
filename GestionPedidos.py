@@ -22,21 +22,25 @@ ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("green")
 
 # --- FUNCIONES DE API ---
-API_BASE = "http://localhost/shipping/api/v1/"  # Cambiar por la URL real
-
 def obtener_pedidos():
     try:
-        response = requests.get(API_BASE)
-        if response.status_code == 200:
-            return response.json()
+        url = ORDERS_ENDPOINTS['list']
+        token = SessionManager.get_token()
+        headers = {'Authorization': f'Bearer {token}'} if token else {}
+        response = APIHandler.make_request('get', url, headers=headers)
+        if response['status_code'] == 200:
+            return response['data']
     except Exception as e:
         print("Error al obtener pedidos:", e)
     return []
 
 def actualizar_estado(pedido_id, nuevo_estado):
     try:
-        response = requests.put(f"{API_BASE}{pedido_id}/", json={"estado": nuevo_estado})
-        return response.status_code == 200
+        url = ORDERS_ENDPOINTS['update'].format(id=pedido_id)
+        token = SessionManager.get_token()
+        headers = {'Authorization': f'Bearer {token}'} if token else {}
+        response = APIHandler.make_request('put', url, data={"estado": nuevo_estado}, headers=headers)
+        return response['status_code'] == 200
     except Exception as e:
         print("Error al actualizar:", e)
     return False

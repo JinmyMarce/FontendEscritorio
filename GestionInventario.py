@@ -84,40 +84,16 @@ class GestionInventario(ctk.CTkFrame):
             
     def cargar_datos_ejemplo(self):
         try:
-            # Intentar cargar datos desde archivo
-            if os.path.exists("datos/inventario.json"):
-                with open("datos/inventario.json", "r", encoding="utf-8") as f:
-                    self.productos = json.load(f)
+            url = INVENTORY_ENDPOINTS['list']
+            token = SessionManager.get_token()
+            headers = {'Authorization': f'Bearer {token}'} if token else {}
+            response = APIHandler.make_request('get', url, headers=headers)
+            if response['status_code'] == 200:
+                self.productos = response['data']
             else:
-                # Datos de ejemplo
-                self.productos = [
-                    {
-                        "id": 1,
-                        "codigo": "P001",
-                        "nombre": "Laptop HP Pavilion",
-                        "categoria": "Computadoras",
-                        "precio": 899.99,
-                        "stock": 15
-                    },
-                    {
-                        "id": 2,
-                        "codigo": "P002",
-                        "nombre": "Monitor Dell 27\"",
-                        "categoria": "Monitores",
-                        "precio": 299.99,
-                        "stock": 25
-                    },
-                    {
-                        "id": 3,
-                        "codigo": "P003",
-                        "nombre": "Teclado Mecánico RGB",
-                        "categoria": "Periféricos",
-                        "precio": 79.99,
-                        "stock": 50
-                    }
-                ]
+                self.productos = []
         except Exception as e:
-            messagebox.showerror("Error", f"Error al cargar datos de ejemplo: {str(e)}")
+            messagebox.showerror("Error", f"Error al cargar inventario: {str(e)}")
             
     def crear_tabla(self):
         try:
@@ -323,7 +299,7 @@ class ProductDialog:
                     entry.insert(0, str(producto[field]))
                     
             # Botones
-            button_frame = ctk.CTkFrame(self.dialog, fg_color="transparent")
+            button_frame = ctk.CTkFrame(self.dialog, fg_color="#FFFFFF")
             button_frame.pack(pady=20)
             
             ctk.CTkButton(

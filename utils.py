@@ -1,5 +1,6 @@
 import mysql.connector
 from mysql.connector import Error
+from config import ICONS_DIR
 import requests
 import json
 from datetime import datetime
@@ -28,23 +29,30 @@ class DatabaseConnection:
 
 class APIHandler:
     @staticmethod
-    def make_request(method, url, data=None, headers=None):
+    def make_request(method, url, data=None, headers=None, files=None, params=None):
         try:
-            # Simular respuesta exitosa para pruebas
-            if url.endswith('/login'):
-                return {
-                    'status_code': 200,
-                    'data': {
-                        'token': 'test_token',
-                        'user': {
-                            'id': 1,
-                            'name': 'Usuario de Prueba',
-                            'email': data.get('email'),
-                            'role': 'admin'
-                        }
-                    }
-                }
-            return {'status_code': 404, 'error': 'Endpoint no encontrado'}
+            method = method.lower()
+            if headers is None:
+                headers = {}
+            if method == 'get':
+                response = requests.get(url, headers=headers, params=params)
+            elif method == 'post':
+                response = requests.post(url, headers=headers, data=data, files=files)
+            elif method == 'put':
+                response = requests.put(url, headers=headers, json=data)
+            elif method == 'delete':
+                response = requests.delete(url, headers=headers)
+            else:
+                return {'status_code': 400, 'error': f'Método HTTP no soportado: {method}'}
+
+            try:
+                resp_json = response.json()
+            except Exception:
+                resp_json = response.text
+            return {
+                'status_code': response.status_code,
+                'data': resp_json
+            }
         except Exception as e:
             return {'status_code': 500, 'error': str(e)}
 
@@ -62,7 +70,7 @@ class UIHelper:
         error_window.geometry(f"400x200+{x}+{y}")
         
         # Frame principal
-        main_frame = ctk.CTkFrame(error_window)
+        main_frame = ctk.CTkFrame(error_window, fg_color="#FFFFFF")
         main_frame.pack(expand=True, fill="both", padx=20, pady=20)
         
         # Icono de error
@@ -103,7 +111,7 @@ class UIHelper:
         success_window.geometry(f"400x200+{x}+{y}")
         
         # Frame principal
-        main_frame = ctk.CTkFrame(success_window)
+        main_frame = ctk.CTkFrame(success_window, fg_color="#FFFFFF")
         main_frame.pack(expand=True, fill="both", padx=20, pady=20)
         
         # Icono de éxito
@@ -144,7 +152,7 @@ class UIHelper:
         warning_window.geometry(f"400x200+{x}+{y}")
         
         # Frame principal
-        main_frame = ctk.CTkFrame(warning_window)
+        main_frame = ctk.CTkFrame(warning_window, fg_color="#FFFFFF")
         main_frame.pack(expand=True, fill="both", padx=20, pady=20)
         
         # Icono de advertencia
@@ -187,7 +195,7 @@ class UIHelper:
         confirm_window.geometry(f"400x200+{x}+{y}")
         
         # Frame principal
-        main_frame = ctk.CTkFrame(confirm_window)
+        main_frame = ctk.CTkFrame(confirm_window, fg_color="#FFFFFF")
         main_frame.pack(expand=True, fill="both", padx=20, pady=20)
         
         # Icono de pregunta
@@ -208,7 +216,7 @@ class UIHelper:
         message_label.pack(pady=(0, 20))
         
         # Frame para botones
-        button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        button_frame = ctk.CTkFrame(main_frame, fg_color="#FFFFFF")
         button_frame.pack()
         
         def confirm():
@@ -331,4 +339,4 @@ def create_default_icons():
             
             # Guardar la imagen
             img.save(icon_path)
-            print(f"Ícono creado: {icon_path}") 
+            print(f"Ícono creado: {icon_path}")

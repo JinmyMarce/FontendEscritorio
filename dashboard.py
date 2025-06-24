@@ -18,14 +18,13 @@ UI_CONFIG = {
     'BG_COLOR': '#F5F5F5'
 }
 
-class DashboardApp:
-    def __init__(self, window):
+class DashboardApp(ctk.CTkFrame):
+    def __init__(self, parent, on_logout=None):
+        super().__init__(parent)
+        self.parent = parent
+        self.on_logout = on_logout
+        self.pack(fill="both", expand=True)
         try:
-            self.window = window
-            self.window.title("Dashboard - Sistema de Administración")
-            self.window.geometry("1280x720")
-            self.window.minsize(1024, 600)
-            
             # Configuración del tema
             ctk.set_appearance_mode("light")
             ctk.set_default_color_theme("green")
@@ -34,7 +33,7 @@ class DashboardApp:
             self.image_handler = ImageHandler()
             
             # Frame principal con color de fondo
-            self.main_frame = ctk.CTkFrame(self.window, fg_color=UI_CONFIG['BG_COLOR'])
+            self.main_frame = ctk.CTkFrame(self, fg_color=UI_CONFIG['BG_COLOR'])
             self.main_frame.pack(fill="both", expand=True)
             
             # Frame de la barra lateral con esquinas redondeadas
@@ -277,11 +276,6 @@ class DashboardApp:
     def cerrar_sesion(self):
         try:
             if messagebox.askyesno("Cerrar Sesión", "¿Está seguro que desea cerrar sesión?"):
-                self.window.destroy()
+                self.on_logout()
         except Exception as e:
             messagebox.showerror("Error", f"Error al cerrar sesión: {str(e)}")
-
-if __name__ == "__main__":
-    root = ctk.CTk()
-    app = DashboardApp(root)
-    root.mainloop()

@@ -1,10 +1,9 @@
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk, messagebox
-import requests
 import pandas as pd
 from datetime import datetime, timedelta
-from config import UI_CONFIG
+from config import UI_CONFIG, REPORTS_ENDPOINTS
 from utils import APIHandler, UIHelper, SessionManager, DataValidator, DateTimeHelper
 
 class ReporteUsuario(ctk.CTkFrame):
@@ -79,17 +78,11 @@ class ReporteUsuario(ctk.CTkFrame):
                 return
                 
             # Aquí se haría la llamada a la API para obtener los datos del usuario
-            # Por ahora usamos datos de ejemplo
-            usuario = {
-                "id": 1,
-                "nombre": "Juan",
-                "apellidos": "Pérez",
-                "email": email,
-                "telefono": "123456789",
-                "fecha_creacion": "2024-01-01",
-                "estado": "Activo",
-                "rol": "Cliente"
-            }
+            usuario = self.obtener_usuario_por_email(email)
+            
+            if not usuario:
+                messagebox.showerror("Error", "Usuario no encontrado")
+                return
             
             pedidos = [
                 {
@@ -115,6 +108,16 @@ class ReporteUsuario(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror("Error", f"Error al buscar usuario: {str(e)}")
             
+    def obtener_usuario_por_email(self, email):
+        token = SessionManager.get_token()
+        headers = {'Authorization': f'Bearer {token}'} if token else {}
+        url = REPORTS_ENDPOINTS['clients'] + f'?email={email}'
+        response = APIHandler.make_request('get', url, headers=headers)
+        if response['status_code'] == 200:
+            return response['data']
+        else:
+            return None
+    
     def mostrar_info_usuario(self, usuario):
         try:
             # Limpiar frame
@@ -218,4 +221,4 @@ class ReporteUsuario(ctk.CTkFrame):
                 ))
                 
         except Exception as e:
-            messagebox.showerror("Error", f"Error al mostrar pedidos: {str(e)}") 
+            messagebox.showerror("Error", f"Error al mostrar pedidos: {str(e)}")

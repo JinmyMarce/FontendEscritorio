@@ -1,7 +1,6 @@
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
@@ -11,7 +10,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import json
 
 # API endpoint
-API_REPORTS_URL = "http://localhost/reports/api/v1/sales/"
+API_REPORTS_URL = REPORTS_ENDPOINTS['sales']
 
 # UI Setup
 ctk.set_appearance_mode("light")
@@ -20,7 +19,7 @@ ctk.set_default_color_theme("green")
 class ReporteVenta(ctk.CTkFrame):
     def __init__(self, parent):
         super().__init__(parent)
-        self.configure(fg_color="transparent")
+        self.configure(fg_color="#FFFFFF")
         
         # Datos de ejemplo
         self.ventas = [
@@ -60,7 +59,7 @@ class ReporteVenta(ctk.CTkFrame):
         
     def setup_ui(self):
         # Frame superior con título y filtros
-        top_frame = ctk.CTkFrame(self, fg_color="transparent")
+        top_frame = ctk.CTkFrame(self, fg_color="#FFFFFF")
         top_frame.pack(fill="x", padx=20, pady=10)
         
         # Título
@@ -72,7 +71,7 @@ class ReporteVenta(ctk.CTkFrame):
         ).pack(side="left")
         
         # Frame de filtros
-        filter_frame = ctk.CTkFrame(top_frame, fg_color="transparent")
+        filter_frame = ctk.CTkFrame(top_frame, fg_color="#FFFFFF")
         filter_frame.pack(side="right")
         
         # Filtro por período
@@ -219,6 +218,15 @@ class ReporteVenta(ctk.CTkFrame):
         self.fig_productos.tight_layout()
         self.canvas_ventas.draw()
         self.canvas_productos.draw()
+
+    def cargar_ventas(self):
+        token = SessionManager.get_token()
+        headers = {'Authorization': f'Bearer {token}'} if token else {}
+        response = APIHandler.make_request('get', API_REPORTS_URL, headers=headers)
+        if response['status_code'] == 200:
+            self.ventas = response['data']
+        else:
+            self.ventas = []
 
 if __name__ == "__main__":
     app = ctk.CTk()

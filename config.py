@@ -7,7 +7,7 @@ load_dotenv()
 # Configuración de la base de datos
 DB_CONFIG = {
     'host': os.getenv('DB_HOST', 'localhost'),
-    'database': os.getenv('DB_NAME', 'bdfresaterra'),
+    'database': os.getenv('DB_NAME', 'fresaterradb'),
     'user': os.getenv('DB_USER', 'root'),
     'password': os.getenv('DB_PASSWORD', '')
 }
@@ -17,7 +17,7 @@ API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000/api/v1')
 
 # Endpoints de Autenticación
 AUTH_ENDPOINTS = {
-    'login': 'http://localhost:8000/api/auth/login',
+    'login': 'http://localhost:8000/api/v1/admin/login',  # <-- Cambiado para admin
     'logout': 'http://localhost:8000/api/auth/logout',
     'refresh': 'http://localhost:8000/api/auth/refresh',
 }

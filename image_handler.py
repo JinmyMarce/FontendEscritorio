@@ -1,5 +1,6 @@
 import os
 from PIL import Image, ImageTk
+from customtkinter import CTkImage
 
 class ImageHandler:
     def __init__(self):
@@ -49,4 +50,18 @@ class ImageHandler:
             
     def clear_cache(self):
         """Limpia la caché de imágenes"""
-        self.image_cache.clear() 
+        self.image_cache.clear()
+        
+    def get_image(self, filename, size=None):
+        """
+        Carga una imagen y la redimensiona si es necesario.
+        Devuelve un objeto CTkImage compatible con el dashboard y otros módulos.
+        Si la imagen no existe, devuelve None.
+        """
+        path = os.path.join(os.path.dirname(__file__), "imagen", filename)
+        if os.path.exists(path):
+            img = Image.open(path)
+            if size:
+                img = img.resize(size, Image.Resampling.LANCZOS)
+            return CTkImage(light_image=img, dark_image=img)
+        return None
