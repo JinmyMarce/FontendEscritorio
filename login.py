@@ -1,8 +1,9 @@
 import customtkinter as ctk
-from PIL import Image, ImageTk
+from PIL import Image
 import os
 from dashboard import DashboardApp
 import tkinter.messagebox as messagebox
+from api_clinte import ApiClient
 
 class LoginApp:
     def __init__(self):
@@ -22,6 +23,8 @@ class LoginApp:
         # Crear widgets
         self.create_widgets()
         
+        self.api = ApiClient()
+        
     def center_window(self, width, height):
         """Centra una ventana en la pantalla"""
         screen_width = self.window.winfo_screenwidth()
@@ -40,12 +43,11 @@ class LoginApp:
             logo_path = os.path.join(os.path.dirname(__file__), "imagen", "logoBlanco.png")
             if os.path.exists(logo_path):
                 logo_img = Image.open(logo_path)
-                # Calcular tamaño manteniendo proporción
                 width = 150
                 ratio = width / logo_img.width
                 height = int(logo_img.height * ratio)
                 logo_img = logo_img.resize((width, height), Image.Resampling.LANCZOS)
-                self.logo = ImageTk.PhotoImage(logo_img)
+                self.logo = ctk.CTkImage(light_image=logo_img, dark_image=logo_img, size=(width, height))
                 logo_label = ctk.CTkLabel(self.main_frame, image=self.logo, text="")
                 logo_label.pack(pady=(20, 20))
             else:
@@ -96,17 +98,6 @@ class LoginApp:
                 command=self.login)
             self.login_button.pack(pady=15)
             
-            # Enlace para registro
-            self.register_button = ctk.CTkButton(
-                self.main_frame,
-                text="¿No tienes cuenta? Regístrate",
-                fg_color="transparent",
-                hover_color="transparent",
-                font=("Quicksand", 12),
-                text_color="#2E6B5C",
-                command=self.show_register)
-            self.register_button.pack(pady=10)
-            
         except Exception as e:
             messagebox.showerror("Error", f"Error al crear la interfaz: {str(e)}")
             
@@ -120,7 +111,8 @@ class LoginApp:
                 messagebox.showwarning("Advertencia", "Por favor complete todos los campos")
                 return
             
-            if email == "admin" and password == "admin":
+            if self.api.login(email, password):
+                self.token = self.api.token
                 # Ocultar ventana de login
                 self.window.withdraw()
                 
@@ -166,97 +158,6 @@ class LoginApp:
                 
         except Exception as e:
             messagebox.showerror("Error", f"Error en el inicio de sesión: {str(e)}")
-            
-    def show_register(self):
-        try:
-            # Ocultar elementos de login
-            for widget in self.main_frame.winfo_children():
-                widget.pack_forget()
-                
-            # Título de registro
-            titulo = ctk.CTkLabel(
-                self.main_frame, 
-                text="Registro de Usuario",
-                font=("Quicksand", 24, "bold"),
-                text_color="#2E6B5C")
-            titulo.pack(pady=(0, 20))
-            
-            # Campos del formulario
-            campos = {
-                "nombre": "Nombre completo",
-                "email": "Email",
-                "password": "Contraseña",
-                "confirm_password": "Confirmar contraseña"
-            }
-            
-            entries = {}
-            for key, placeholder in campos.items():
-                entry = ctk.CTkEntry(
-                    self.main_frame,
-                    placeholder_text=placeholder,
-                    width=260, height=36,
-                    corner_radius=10,
-                    font=("Quicksand", 12),
-                    show="*" if "password" in key else "")
-                entry.pack(pady=6)
-                entries[key] = entry
-                
-            def register():
-                try:
-                    # Validar campos vacíos
-                    if not all(entry.get().strip() for entry in entries.values()):
-                        messagebox.showwarning("Advertencia", "Todos los campos son requeridos")
-                        return
-                        
-                    if entries["password"].get() != entries["confirm_password"].get():
-                        messagebox.showwarning("Advertencia", "Las contraseñas no coinciden")
-                        return
-                        
-                    # Simular registro exitoso
-                    messagebox.showinfo("Éxito", "Usuario registrado correctamente")
-                    
-                    # Volver al login
-                    self.show_login()
-                    
-                except Exception as e:
-                    messagebox.showerror("Error", f"Error en el registro: {str(e)}")
-                
-            # Botón de registro
-            ctk.CTkButton(
-                self.main_frame,
-                text="Registrarse",
-                width=260, height=40,
-                corner_radius=20,
-                fg_color="#2E6B5C",
-                hover_color="#1D4A3C",
-                font=("Quicksand", 13, "bold"),
-                command=register).pack(pady=15)
-                
-            # Enlace para volver al login
-            ctk.CTkButton(
-                self.main_frame,
-                text="¿Ya tienes cuenta? Inicia sesión",
-                fg_color="transparent",
-                hover_color="transparent",
-                font=("Quicksand", 12),
-                text_color="#2E6B5C",
-                command=self.show_login).pack(pady=10)
-                
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al mostrar el registro: {str(e)}")
-            self.show_login()
-            
-    def show_login(self):
-        try:
-            # Limpiar frame
-            for widget in self.main_frame.winfo_children():
-                widget.destroy()
-                
-            # Recrear widgets de login
-            self.create_widgets()
-            
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al mostrar el login: {str(e)}")
             
     def run(self):
         try:
