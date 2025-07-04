@@ -20,6 +20,7 @@ __pycache__/
 *.db
 *.sqlite
 *.sqlite3
+datos/
 
 # Archivos de configuración del IDE
 .vscode/
