@@ -1,211 +1,118 @@
-# Sistema de Administración
+# Sistema de Administración FRESAS
 
-Sistema de administración para la gestión de inventario, pedidos y clientes desarrollado con Python y CustomTkinter.
+Sistema de administración para la gestión de inventario, pedidos y clientes desarrollado en Python con CustomTkinter.
 
-## Características
+---
 
-- Sistema de autenticación con roles y permisos
-- Gestión de inventario
-- Gestión de pedidos y envíos
-- Gestión de clientes
-- Sistema de notificaciones
-- Reportes de ventas con gráficos
-- Interfaz moderna y amigable
+## 📦 Estructura del Proyecto
 
-## Requisitos
+```
+FontendEscritorio/
+├── main.py                  # Punto de entrada principal
+├── requirements.txt         # Dependencias del proyecto
+├── assets/                  # Imágenes y fuentes
+└── src/
+    ├── core/                # Configuración y constantes globales
+    ├── shared/              # Utilidades y helpers
+    └── interfaces/
+        ├── auth/            # Login y autenticación
+        ├── dashboard/       # Panel principal
+        ├── management/      # Gestión de inventario, pedidos, clientes, usuarios, etc.
+        └── reports/         # Reportes y estadísticas
+```
 
-- Python 3.8 o superior
-- MySQL 8.0 o superior
+---
 
-## Instalación
+## 🚀 Guía para Ejecutar el Proyecto
 
-1. Clonar el repositorio:
+### 1. Clona el repositorio
+
 ```bash
 git clone <url-del-repositorio>
-cd <nombre-del-directorio>
+cd FontendEscritorio
 ```
 
-2. Crear un entorno virtual:
+### 2. Crea y activa un entorno virtual
+
 ```bash
 python -m venv venv
-```
-
-3. Activar el entorno virtual:
-
-Windows:
-```bash
+# En Windows
 venv\Scripts\activate
-```
-
-Linux/Mac:
-```bash
+# En Linux/Mac
 source venv/bin/activate
 ```
 
-4. Instalar las dependencias:
+### 3. Instala las dependencias
+
 ```bash
 pip install -r requirements.txt
 ```
 
-5. Crear archivo .env:
-```bash
-cp .env.example .env
+### 4. (Opcional) Configura variables de entorno
+
+Si necesitas personalizar la URL de la API u otras variables, crea un archivo `.env` en la raíz:
+
+```
+API_BASE_URL=https://api.fresaterra.shop/api/v1
 ```
 
-6. Configurar las variables de entorno en el archivo .env:
-```
-DB_HOST=localhost
-DB_NAME=bdfresaterra
-DB_USER=tu_usuario
-DB_PASSWORD=tu_contraseña
-API_BASE_URL=http://localhost:8000/api/v1
-```
+### 5. Ejecuta la aplicación
 
-## Uso
-
-1. Activar el entorno virtual si no está activo:
-
-Windows:
-```bash
-venv\Scripts\activate
-```
-
-Linux/Mac:
-```bash
-source venv/bin/activate
-```
-
-2. Ejecutar la aplicación:
 ```bash
 python main.py
 ```
 
-## Estructura del Proyecto
+---
 
-```
-.
-├── main.py                 # Archivo principal
-├── config.py              # Configuraciones y endpoints
-├── utils.py               # Utilidades y funciones comunes
-├── login.py              # Sistema de login
-├── dashboard.py          # Dashboard principal
-├── GestionInventario.py  # Módulo de inventario
-├── GestionPedidos.py     # Módulo de pedidos
-├── GestionClientes.py    # Módulo de clientes
-├── GestionNotificaciones.py # Módulo de notificaciones
-├── ReporteVenta.py      # Módulo de reportes
-├── requirements.txt      # Dependencias
-└── README.md            # Este archivo
-```
+## 📝 Características Principales
 
-## Roles y Permisos
+- Login seguro con roles y permisos
+- Gestión de inventario, pedidos, clientes y usuarios
+- Notificaciones y reportes
+- Interfaz moderna y responsiva (CustomTkinter)
+- Integración con API REST (configurable)
+- Soporte para imágenes y recursos estáticos
 
-El sistema maneja tres roles principales:
+---
 
-1. Administrador
-   - Acceso total al sistema
-   - Gestión de usuarios y roles
-   - Acceso a todos los módulos
+## 🛠️ Tecnologías Utilizadas
 
-2. Gerente
-   - Gestión de inventario
-   - Gestión de pedidos
-   - Visualización de clientes
-   - Acceso a reportes
+- Python 3.11+
+- CustomTkinter
+- Pillow
+- Requests
+- Matplotlib
+- Pandas
+- MySQL Connector
+- python-dotenv
 
-3. Empleado
-   - Visualización de inventario
-   - Visualización de pedidos
-   - Visualización de clientes
+---
 
-## Base de Datos
+## 📋 Organización y buenas prácticas
 
-El sistema utiliza MySQL como base de datos. La estructura de las tablas principales es:
+- Código modular y organizado por responsabilidad
+- Configuración centralizada en `src/core/config.py`
+- Datos de ejemplo y persistencia en `data/`
+- Recursos estáticos en `assets/`
+- Todas las dependencias en `requirements.txt`
+- `.gitignore` configurado para excluir entornos virtuales y cachés
 
-### Roles
-```sql
-CREATE TABLE IF NOT EXISTS `roles` (
-  `id_rol` INT NOT NULL AUTO_INCREMENT,
-  `nombre` VARCHAR(100) NOT NULL,
-  `descripcion` TEXT NULL,
-  `fecha_creacion` TIMESTAMP NOT NULL,
-  PRIMARY KEY (`id_rol`)
-);
-```
+---
 
-### Usuarios
-```sql
-CREATE TABLE IF NOT EXISTS `usuarios` (
-  `id_usuario` INT NOT NULL AUTO_INCREMENT,
-  `nombre` VARCHAR(100) NOT NULL,
-  `apellidos` VARCHAR(100) NOT NULL,
-  `email` VARCHAR(100) NOT NULL,
-  `password` VARCHAR(255) NOT NULL,
-  `telefono` VARCHAR(12) NOT NULL,
-  `fecha_creacion` TIMESTAMP NOT NULL,
-  `estado` TINYINT NOT NULL,
-  `roles_id_rol` INT NOT NULL,
-  PRIMARY KEY (`id_usuario`),
-  FOREIGN KEY (`roles_id_rol`) REFERENCES `roles` (`id_rol`)
-);
-```
+## 🤝 Contribución
 
-## API Endpoints
+1. Haz fork del proyecto
+2. Crea una rama (`git checkout -b feature/mi-feature`)
+3. Realiza tus cambios y commitea (`git commit -am "feat: mi feature"`)
+4. Haz push a tu rama (`git push origin feature/mi-feature`)
+5. Abre un Pull Request
 
-La aplicación se comunica con una API REST. Los principales endpoints son:
+---
 
-### Autenticación
-- POST /auth/login
-- POST /auth/register
-- POST /auth/logout
-- POST /auth/refresh
-- GET /auth/verify
+## 📄 Licencia
 
-### Clientes
-- GET /admin/clientes
-- GET /admin/clientes/{id}
-- POST /admin/clientes
-- PUT /admin/clientes/{id}
-- DELETE /admin/clientes/{id}
-- PATCH /admin/clientes/{id}/estado
-- POST /admin/clientes/{id}/password
+Este proyecto está bajo la Licencia MIT.
 
-### Inventario
-- GET /admin/inventario
-- GET /admin/inventario/{id}
-- POST /admin/inventario/register
-- PUT /admin/inventario/update/{id}
-- DELETE /admin/inventario/{id}
-- GET /admin/inventario/categorias
+---
 
-### Pedidos
-- GET /admin/pedidos
-- GET /admin/pedidos/{id}
-- POST /admin/pedidos
-- PUT /admin/pedidos/{id}
-- DELETE /admin/pedidos/{id}
-- PUT /admin/pedidos/{id}/envio
-
-### Notificaciones
-- GET /admin/notificaciones
-- GET /admin/notificaciones/{id}
-- POST /admin/notificaciones/send
-- PUT /admin/notificaciones/{id}/read
-
-### Reportes
-- GET /admin/reportes/ventas
-- GET /admin/reportes/inventario
-- GET /admin/reportes/clientes
-- GET /admin/reportes/pedidos
-
-## Contribuir
-
-1. Fork el proyecto
-2. Crear una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abrir un Pull Request
-
-## Licencia
-
-Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles. 
+> **Nota:** Este README refleja la estructura y procesos actualizados del proyecto. Para dudas técnicas, revisa los módulos en `src/` y la configuración en `src/core/config.py`.

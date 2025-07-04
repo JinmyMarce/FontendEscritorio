@@ -1,8 +1,14 @@
 import customtkinter as ctk
-from config import UI_CONFIG, APP_CONFIG
-from utils import SessionManager, UIHelper, create_default_icons
-from login import LoginApp
-from dashboard import DashboardApp
+import sys
+import os
+
+# Añadir el directorio src al path para los imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+
+from src.core.config import UI_CONFIG, APP_CONFIG
+from src.shared.utils import SessionManager, UIHelper, create_default_icons
+from src.interfaces.auth.login import LoginApp
+from src.interfaces.dashboard.dashboard import DashboardApp
 
 class MainApp:
     def __init__(self):
