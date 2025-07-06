@@ -23,26 +23,65 @@ ctk.set_default_color_theme("green")
 
 # --- FUNCIONES DE API ---
 def obtener_pedidos():
+    """
+    Obtiene la lista de pedidos desde la API y maneja errores de forma robusta.
+    Devuelve una lista vacía si hay problemas.
+    """
     try:
         url = ORDERS_ENDPOINTS['list']
         token = SessionManager.get_token()
         headers = {'Authorization': f'Bearer {token}'} if token else {}
         response = APIHandler.make_request('get', url, headers=headers)
-        if response['status_code'] == 200:
-            return response['data']
+        if response.get('status_code') == 200:
+            data = response.get('data', [])
+            if isinstance(data, dict) and 'orders' in data:
+                return data['orders']
+            elif isinstance(data, list):
+                return data
+            else:
+                message = data if isinstance(data, str) else str(data)
+                messagebox.showerror("Error", f"Respuesta inesperada de la API de pedidos:\n{message}")
+                return []
+        else:
+            message = response.get('data') or response.get('message') or str(response)
+            messagebox.showerror("Error", f"No se pudo obtener pedidos:\n{message}")
+            return []
     except Exception as e:
-        print("Error al obtener pedidos:", e)
+        messagebox.showerror("Error", f"Error al obtener pedidos: {str(e)}")
     return []
 
-def actualizar_estado(pedido_id, nuevo_estado):
+def actualizar_estado(pedido_id, nuevo_estado, return_error=False):
+    """
+    Actualiza el estado de un pedido mediante la API y maneja errores.
+    Devuelve una tupla (exito, mensaje_error) si return_error=True.
+    """
     try:
         url = ORDERS_ENDPOINTS['update'].format(id=pedido_id)
         token = SessionManager.get_token()
         headers = {'Authorization': f'Bearer {token}'} if token else {}
-        response = APIHandler.make_request('put', url, data={"estado": nuevo_estado}, headers=headers)
-        return response['status_code'] == 200
+        response = APIHandler.make_request('patch', url, data={"estado": nuevo_estado}, headers=headers)
+        if response.get('status_code') == 200:
+            data = response.get('data', {})
+            mensaje = data.get('mensaje', 'Pedido actualizado correctamente')
+            print(mensaje)
+            if return_error:
+                return True, None
+            return True
+        else:
+            error_msg = None
+            if response.get('data') and isinstance(response['data'], dict):
+                error_msg = response['data'].get('message') or response['data'].get('mensaje')
+            if not error_msg:
+                error_msg = response.get('message') or str(response)
+            print("Pedido no encontrado" if response.get('status_code') == 404 else "Error inesperado:", error_msg)
+            if return_error:
+                return False, error_msg
     except Exception as e:
         print("Error al actualizar:", e)
+        if return_error:
+            return False, str(e)
+    if return_error:
+        return False, "No se pudo actualizar el estado del pedido."
     return False
 
 # --- CLASE PRINCIPAL DE INTERFAZ ---
@@ -55,8 +94,8 @@ class GestionPedidos(ctk.CTkFrame):
             # Configurar tema
             self.configure(fg_color="#F5F5F5")
             
-            # Datos de ejemplo
-            self.pedidos = self.cargar_datos_ejemplo()
+            # Inicializar lista de pedidos (se cargan desde el backend en cargar_datos)
+            self.pedidos = []
             
             # Frame superior
             top_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -129,7 +168,7 @@ class GestionPedidos(ctk.CTkFrame):
             self.estado_var.trace("w", self.filtrar_tabla)
             estado_menu = ctk.CTkOptionMenu(
                 search_frame,
-                values=["Todos", "Pendiente", "En Proceso", "Enviado", "Entregado", "Cancelado"],
+                values=["Todos", "pendiente", "confirmado", "preparando", "enviado", "entregado", "cancelado", "abandonado"],
                 variable=self.estado_var,
                 width=120,
                 fg_color="#2E6B5C",
@@ -141,25 +180,13 @@ class GestionPedidos(ctk.CTkFrame):
             )
             estado_menu.pack(side="left", padx=5, pady=10)
             
-            # Botones de acción
+            # Botón de acción: solo actualizar estado
             action_frame = ctk.CTkFrame(search_frame, fg_color="transparent")
             action_frame.pack(side="right", padx=15)
-            
-            # Botón nuevo pedido
             ctk.CTkButton(
                 action_frame,
-                text="➕ Nuevo Pedido",
-                command=self.nuevo_pedido,
-                fg_color="#2E6B5C",
-                hover_color="#1D4A3C",
-                width=120
-            ).pack(side="left", padx=5)
-            
-            # Botón actualizar estado
-            ctk.CTkButton(
-                action_frame,
-                text="🔄 Actualizar Estado",
-                command=self.actualizar_estado,
+                text="Actualizar Estado",
+                command=self.mostrar_dialogo_estado,
                 fg_color="#FFA000",
                 hover_color="#F57C00",
                 width=150
@@ -190,13 +217,11 @@ class GestionPedidos(ctk.CTkFrame):
             # Frame para tabla
             table_frame = ctk.CTkFrame(self, fg_color="#FFFFFF", corner_radius=10)
             table_frame.pack(fill="both", expand=True)
-            
+
             # Tabla
             columns = (
-                "id_pedido", "cliente", "monto_total", 
-                "estado", "fecha_creacion", "metodo_pago"
+                "id_pedido", "cliente", "productos", "cantidades", "monto_total", "estado"
             )
-            
             self.tabla = ttk.Treeview(
                 table_frame,
                 columns=columns,
@@ -204,23 +229,21 @@ class GestionPedidos(ctk.CTkFrame):
                 selectmode="browse",
                 style="Treeview"
             )
-            
             # Configurar columnas
-            self.tabla.heading("id_pedido", text="ID")
+            self.tabla.heading("id_pedido", text="")
             self.tabla.heading("cliente", text="Cliente")
+            self.tabla.heading("productos", text="Productos")
+            self.tabla.heading("cantidades", text="Cantidades")
             self.tabla.heading("monto_total", text="Monto Total")
-            self.tabla.heading("estado", text="Estado")
-            self.tabla.heading("fecha_creacion", text="Fecha Creación")
-            self.tabla.heading("metodo_pago", text="Método de Pago")
-            
+            self.tabla.heading("estado", text="Estado del Pedido")
             # Configurar anchos
-            self.tabla.column("id_pedido", width=50, anchor="center")
+            self.tabla.column("id_pedido", width=0, stretch=False)  # Oculta visualmente
             self.tabla.column("cliente", width=200)
+            self.tabla.column("productos", width=220)
+            self.tabla.column("cantidades", width=120, anchor="center")
             self.tabla.column("monto_total", width=100, anchor="center")
             self.tabla.column("estado", width=100, anchor="center")
-            self.tabla.column("fecha_creacion", width=150, anchor="center")
-            self.tabla.column("metodo_pago", width=120, anchor="center")
-            
+
             # Scrollbar personalizado
             scrollbar = ttk.Scrollbar(
                 table_frame,
@@ -248,80 +271,56 @@ class GestionPedidos(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror("Error", f"Error al inicializar: {str(e)}")
             
-    def cargar_datos_ejemplo(self):
-        return [
-            {
-                "id_pedido": 1,
-                "cliente": "Juan Pérez",
-                "monto_total": 150.00,
-                "estado": "Pendiente",
-                "fecha_creacion": "2024-03-15 10:00:00",
-                "metodo_pago": "Tarjeta",
-                "items": [
-                    {
-                        "producto": "Producto 1",
-                        "cantidad": 2,
-                        "precio": 50.00,
-                        "subtotal": 100.00
-                    },
-                    {
-                        "producto": "Producto 2",
-                        "cantidad": 1,
-                        "precio": 50.00,
-                        "subtotal": 50.00
-                    }
-                ]
-            },
-            {
-                "id_pedido": 2,
-                "cliente": "María López",
-                "monto_total": 75.50,
-                "estado": "Enviado",
-                "fecha_creacion": "2024-03-15 11:00:00",
-                "metodo_pago": "Efectivo",
-                "items": [
-                    {
-                        "producto": "Producto 3",
-                        "cantidad": 1,
-                        "precio": 75.50,
-                        "subtotal": 75.50
-                    }
-                ]
-            }
-        ]
+    # El método cargar_datos_ejemplo ya no se usará, pero se deja para referencia.
         
     def cargar_datos(self):
         try:
+            # Obtener datos en vivo desde el backend
+            self.pedidos = obtener_pedidos()
             # Limpiar tabla
             for item in self.tabla.get_children():
                 self.tabla.delete(item)
-                
             # Cargar datos
             for pedido in self.pedidos:
+                # Extraer productos y cantidades de los items
+                productos = []
+                cantidades = []
+                for item in pedido.get("items", []):
+                    # Si el item tiene snapshot de producto, usar el nombre
+                    nombre_producto = item.get("producto")
+                    if not nombre_producto and "producto_snapshot" in item:
+                        nombre_producto = item["producto_snapshot"].get("nombre", "")
+                    productos.append(nombre_producto or "")
+                    cantidades.append(str(item.get("cantidad", "")))
+                productos_str = ", ".join(productos)
+                cantidades_str = ", ".join(cantidades)
+                # Construir nombre del cliente
+                cliente = ""
+                if "usuario" in pedido:
+                    nombre = pedido["usuario"].get("nombre", "")
+                    apellidos = pedido["usuario"].get("apellidos", "")
+                    cliente = f"{nombre} {apellidos}".strip()
                 # Configurar tags para el estado
                 tags = (pedido["estado"].lower().replace(" ", "_"),)
-                
                 self.tabla.insert(
                     "",
                     "end",
                     values=(
-                        pedido["id_pedido"],
-                        pedido["cliente"],
+                        pedido.get("id_pedido", ""),
+                        cliente,
+                        productos_str,
+                        cantidades_str,
                         f"S/. {pedido['monto_total']:.2f}",
-                        pedido["estado"],
-                        pedido["fecha_creacion"],
-                        pedido["metodo_pago"]
+                        pedido["estado"]
                     ),
                     tags=tags
                 )
-                
             # Configurar colores de estado
             self.tabla.tag_configure("pendiente", foreground="#FFA000")
             self.tabla.tag_configure("en_proceso", foreground="#1976D2")
             self.tabla.tag_configure("enviado", foreground="#7B1FA2")
             self.tabla.tag_configure("entregado", foreground="#2E7D32")
             self.tabla.tag_configure("cancelado", foreground="#C62828")
-                
         except Exception as e:
             messagebox.showerror("Error", f"Error al cargar datos: {str(e)}")
             
@@ -337,20 +336,31 @@ class GestionPedidos(ctk.CTkFrame):
                 
             # Filtrar y cargar datos
             for pedido in self.pedidos:
+                # Extraer productos y cantidades de los items
+                productos = []
+                cantidades = []
+                for item in pedido.get("items", []):
+                    nombre_producto = item.get("producto")
+                    if not nombre_producto and "producto_snapshot" in item:
+                        nombre_producto = item["producto_snapshot"].get("nombre", "")
+                    productos.append(nombre_producto or "")
+                    cantidades.append(str(item.get("cantidad", "")))
+                productos_str = ", ".join(productos)
+                cantidades_str = ", ".join(cantidades)
                 # Aplicar filtros
                 if estado != "Todos" and pedido["estado"] != estado:
                     continue
                     
-                if busqueda and not any(
-                    busqueda in str(valor).lower()
-                    for valor in [
-                        str(pedido["id_pedido"]),
-                        pedido["cliente"],
-                        pedido["estado"]
-                    ]
-                ):
+                valores_busqueda = [
+                    pedido.get("id_pedido", ""),
+                    pedido.get("cliente", ""),
+                    productos_str,
+                    cantidades_str,
+                    f"S/. {pedido['monto_total']:.2f}",
+                    pedido["estado"]
+                ]
+                if busqueda and not any(busqueda in str(valor).lower() for valor in valores_busqueda):
                     continue
-                    
                 # Configurar tags para el estado
                 tags = (pedido["estado"].lower().replace(" ", "_"),)
                 
@@ -359,12 +369,11 @@ class GestionPedidos(ctk.CTkFrame):
                     "",
                     "end",
                     values=(
-                        pedido["id_pedido"],
                         pedido["cliente"],
+                        productos_str,
+                        cantidades_str,
                         f"S/. {pedido['monto_total']:.2f}",
-                        pedido["estado"],
-                        pedido["fecha_creacion"],
-                        pedido["metodo_pago"]
+                        pedido["estado"]
                     ),
                     tags=tags
                 )
@@ -394,31 +403,62 @@ class GestionPedidos(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror("Error", f"Error al crear nuevo pedido: {str(e)}")
             
-    def actualizar_estado(self):
+    def mostrar_dialogo_estado(self):
         try:
-            # Obtener selección
             seleccion = self.tabla.selection()
             if not seleccion:
                 messagebox.showwarning("Advertencia", "Por favor seleccione un pedido")
                 return
-                
-            # Obtener pedido seleccionado
             item = self.tabla.item(seleccion[0])
             pedido_id = item["values"][0]
-            pedido = next((p for p in self.pedidos if p["id_pedido"] == pedido_id), None)
-            
-            if pedido:
-                # Ventana de actualización de estado
-                dialog = EstadoDialog(self, pedido)
-                if dialog.result:
-                    # Actualizar estado
-                    pedido["estado"] = dialog.result
+            pedido = next((p for p in self.pedidos if str(p.get("id_pedido", "")) == str(pedido_id)), None)
+            if not pedido:
+                messagebox.showerror("Error", "No se pudo encontrar el pedido seleccionado.")
+                return
+            estado_actual = pedido["estado"].lower()
+            if estado_actual in ["completado", "cancelado", "rechazado"]:
+                messagebox.showinfo("Información", f"El pedido ya está en estado '{pedido['estado']}'.")
+                return
+            # Crear diálogo
+            dialog = ctk.CTkToplevel(self)
+            dialog.title("Actualizar Estado")
+            dialog.geometry("300x180")
+            dialog.grab_set()
+            # Centrar el diálogo en la pantalla
+            dialog.update_idletasks()
+            w = dialog.winfo_width()
+            h = dialog.winfo_height()
+            x = (dialog.winfo_screenwidth() // 2) - (w // 2)
+            y = (dialog.winfo_screenheight() // 2) - (h // 2)
+            dialog.geometry(f"300x180+{x}+{y}")
+            ctk.CTkLabel(dialog, text="Selecciona nuevo estado:", font=("Quicksand", 12)).pack(pady=15)
+            estado_var = ctk.StringVar(value="pendiente")
+            combo = ctk.CTkOptionMenu(dialog, variable=estado_var, values=["pendiente", "confirmado", "preparando", "enviado", "entregado", "cancelado", "abandonado"])
+            combo.pack(pady=5)
+            def confirmar():
+                opcion = estado_var.get()
+                if not opcion:
+                    messagebox.showwarning("Advertencia", "Selecciona un estado válido para actualizar.", parent=dialog)
+                    return
+                respuesta = messagebox.askyesno(
+                    "Confirmar",
+                    f"¿Deseas cambiar el estado del pedido #{pedido_id} a '{opcion.upper()}?", parent=dialog
+                )
+                if not respuesta:
+                    return
+                exito, error_msg = actualizar_estado(pedido_id, opcion, return_error=True)
+                if exito:
                     self.cargar_datos()
-                    self.guardar_datos()
-                    messagebox.showinfo("Éxito", "Estado actualizado correctamente")
-                    
+                    messagebox.showinfo("Éxito", f"Estado cambiado a {opcion.upper()}", parent=dialog)
+                    dialog.destroy()
+                else:
+                    messagebox.showerror("Error", error_msg or "No se pudo actualizar el estado del pedido.", parent=dialog)
+            ctk.CTkButton(dialog, text="Actualizar", command=confirmar, fg_color="#FFA000", hover_color="#F57C00").pack(pady=10)
+            ctk.CTkButton(dialog, text="Cancelar", command=dialog.destroy, fg_color="#E64A19", hover_color="#BF360C").pack(pady=2)
+
         except Exception as e:
-            messagebox.showerror("Error", f"Error al actualizar estado: {str(e)}")
+            messagebox.showerror("Error", f"Error al mostrar diálogo: {str(e)}")
+
             
     def cancelar_pedido(self, event=None):
         try:
@@ -905,10 +945,10 @@ class EstadoDialog:
                 text_color="#2E6B5C"
             ).pack(pady=(10, 0))
             
-            self.estado_var = ctk.StringVar(value=pedido["estado"])
+            self.estado_var = ctk.StringVar(value=pedido["estado"].lower())
             estado_menu = ctk.CTkOptionMenu(
                 main_frame,
-                values=["Pendiente", "En Proceso", "Enviado", "Entregado", "Cancelado"],
+                values=["pendiente", "confirmado", "preparando", "enviado", "entregado", "cancelado", "abandonado"],
                 variable=self.estado_var,
                 width=300,
                 fg_color="#2E6B5C",
@@ -1002,26 +1042,33 @@ class DetallesPedidoDialog:
                 ("Cliente", "cliente"),
                 ("Monto Total", "monto_total"),
                 ("Estado", "estado"),
+                ("Estado de Pago", "estado_pago"),
                 ("Fecha Creación", "fecha_creacion"),
                 ("Método de Pago", "metodo_pago")
             ]
-            
+
             for label, field in campos:
                 frame = ctk.CTkFrame(main_frame, fg_color="#F5F5F5")
                 frame.pack(fill="x", pady=5)
-                
+
                 ctk.CTkLabel(
                     frame,
                     text=f"{label}:",
                     font=("Quicksand", 12, "bold"),
                     text_color="#2E6B5C",
-                    width=100
+                    width=130 if label == "Estado de Pago" else 100
                 ).pack(side="left", padx=10)
-                
-                valor = pedido[field]
+
                 if field == "monto_total":
-                    valor = f"S/. {valor:.2f}"
-                    
+                    valor = f"S/. {pedido['monto_total']:.2f}"
+                elif field == "estado_pago":
+                    # Busca el estado del pago en el JSON del pedido
+                    valor = "-"
+                    if 'pagos' in pedido and pedido['pagos']:
+                        valor = pedido['pagos'][0].get('estado_pago', '-')
+                else:
+                    valor = pedido.get(field, '-')
+
                 ctk.CTkLabel(
                     frame,
                     text=str(valor),

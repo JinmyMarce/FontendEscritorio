@@ -36,12 +36,12 @@ INVENTORY_ENDPOINTS = {
 
 # Endpoints de Pedidos
 ORDERS_ENDPOINTS = {
-    'list': f"{API_BASE_URL}/admin/pedidos",
-    'detail': f"{API_BASE_URL}/admin/pedidos/{{id}}",
-    'create': f"{API_BASE_URL}/admin/pedidos",
-    'update': f"{API_BASE_URL}/admin/pedidos/{{id}}",
-    'delete': f"{API_BASE_URL}/admin/pedidos/{{id}}",
-    'shipping': f"{API_BASE_URL}/admin/pedidos/{{id}}/envio"
+    'list': f"{API_BASE_URL}/orders", 
+    'detail': f"{API_BASE_URL}/orders/{{id}}", 
+    'create': f"{API_BASE_URL}/pedidos",
+    'update': f"{API_BASE_URL}/orders/{{id}}/status", 
+    'delete': f"{API_BASE_URL}/pedidos/{{id}}",
+    'shipping': f"{API_BASE_URL}/pedidos/{{id}}/envio"
 }
 
 # Endpoints de Notificaciones
