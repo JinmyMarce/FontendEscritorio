@@ -5,7 +5,7 @@ from src.interfaces.management.inventory_management import GestionInventario
 from src.interfaces.management.orders_management import GestionPedidos
 from src.interfaces.management.clients_management import GestionClientes
 from src.interfaces.management.notifications_management import GestionNotificaciones
-from src.interfaces.management.users_management import GestionUsuarios
+from src.interfaces.management.payments_management import GestionPagos
 from src.shared.image_handler import ImageHandler
 import tkinter.messagebox as messagebox
 
@@ -82,7 +82,7 @@ class DashboardApp(ctk.CTkFrame):
             self.add_nav_button("🛒 Pedidos", self.mostrar_pedidos)
             self.add_nav_button("👥 Clientes", self.mostrar_clientes)
             self.add_nav_button("🔔 Notificaciones", self.mostrar_notificaciones)
-            self.add_nav_button("👤 Gestión de Usuarios", self.mostrar_usuarios)
+            self.add_nav_button("💰 Gestión de Pagos", self.mostrar_pagos)
             
             # Botón de cerrar sesión
             self.add_nav_button("🚪 Cerrar Sesión", self.cerrar_sesion)
@@ -187,10 +187,10 @@ class DashboardApp(ctk.CTkFrame):
                     "command": self.mostrar_notificaciones
                 },
                 {
-                    "icon": "👤",
-                    "title": "Gestión de Usuarios",
-                    "desc": "Administre los usuarios del sistema",
-                    "command": self.mostrar_usuarios
+                    "icon": "�",
+                    "title": "Gestión de Pagos",
+                    "desc": "Administre los pagos y transacciones",
+                    "command": self.mostrar_pagos
                 }
             ]
             
@@ -266,12 +266,12 @@ class DashboardApp(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror("Error", f"Error al mostrar notificaciones: {str(e)}")
             
-    def mostrar_usuarios(self):
+    def mostrar_pagos(self):
         try:
             self.clear_content()
-            self.current_module = GestionUsuarios(self.content)
+            self.current_module = GestionPagos(self.content)
         except Exception as e:
-            messagebox.showerror("Error", f"Error al mostrar usuarios: {str(e)}")
+            messagebox.showerror("Error", f"Error al mostrar pagos: {str(e)}")
             
     def cerrar_sesion(self):
         try:

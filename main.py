@@ -42,9 +42,8 @@ class MainApp:
         self.show_login()
         
     def show_login(self):
-        # Limpiar frame actual
-        if self.current_frame:
-            self.current_frame.destroy()
+        # Limpiar frame actual de forma segura
+        self.cleanup_current_frame()
         # Cambiar tamaño y centrar ventana para el login
         self.window.update_idletasks()
         width, height = 400, 520
@@ -59,9 +58,8 @@ class MainApp:
         )
         
     def show_dashboard(self, user_data):
-        # Limpiar frame actual
-        if self.current_frame:
-            self.current_frame.destroy()
+        # Limpiar frame actual de forma segura
+        self.cleanup_current_frame()
         # Cambiar tamaño de ventana para el dashboard y centrar antes de mostrar el frame
         self.window.update_idletasks()
         width, height = 1100, 700
@@ -75,8 +73,32 @@ class MainApp:
             on_logout=self.show_login
         )
         
+    def cleanup_current_frame(self):
+        """Limpia el frame actual de forma segura"""
+        if self.current_frame:
+            try:
+                # Si el frame tiene método de limpieza, usarlo
+                if hasattr(self.current_frame, 'cleanup_widgets'):
+                    self.current_frame.cleanup_widgets()
+                elif hasattr(self.current_frame, 'safe_close'):
+                    self.current_frame.safe_close()
+                
+                # Verificar que el frame aún existe antes de destruirlo
+                if self.current_frame.winfo_exists():
+                    self.current_frame.destroy()
+            except Exception as e:
+                print(f"Error al limpiar frame: {e}")
+            finally:
+                self.current_frame = None
+        
     def run(self):
-        self.window.mainloop()
+        try:
+            self.window.mainloop()
+        except Exception as e:
+            print(f"Error en mainloop: {e}")
+        finally:
+            # Limpieza final
+            self.cleanup_current_frame()
 
 if __name__ == "__main__":
     app = MainApp()

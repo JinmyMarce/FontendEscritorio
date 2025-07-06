@@ -340,6 +340,41 @@ class DateTimeHelper:
             return date.strftime('%d/%m/%Y %H:%M')
         except:
             return date_string
+    
+    @staticmethod
+    def format_datetime(date_string):
+        """Formatear fecha y hora desde formato ISO a formato legible"""
+        try:
+            if not date_string:
+                return "Sin fecha"
+            
+            # Manejar formato ISO con Z o con .000000Z
+            if 'T' in date_string:
+                if date_string.endswith('Z'):
+                    date_string = date_string[:-1] + '+00:00'
+                
+                # Intentar diferentes formatos
+                formats_to_try = [
+                    '%Y-%m-%dT%H:%M:%S.%f%z',
+                    '%Y-%m-%dT%H:%M:%S%z',
+                    '%Y-%m-%dT%H:%M:%S.%f',
+                    '%Y-%m-%dT%H:%M:%S'
+                ]
+                
+                for fmt in formats_to_try:
+                    try:
+                        date = datetime.strptime(date_string, fmt)
+                        return date.strftime('%d/%m/%Y %H:%M')
+                    except:
+                        continue
+            
+            # Fallback: intentar formato básico
+            date = datetime.strptime(date_string, '%Y-%m-%d %H:%M:%S')
+            return date.strftime('%d/%m/%Y %H:%M')
+            
+        except Exception as e:
+            # Si no se puede parsear, devolver la fecha original
+            return str(date_string)[:19].replace('T', ' ') if 'T' in str(date_string) else str(date_string)
             
     @staticmethod
     def get_current_datetime():

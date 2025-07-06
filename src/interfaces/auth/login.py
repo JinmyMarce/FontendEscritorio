@@ -26,9 +26,8 @@ class LoginApp(ctk.CTkFrame):
 
     def create_widgets(self):
         try:
-            # Si ya existe main_frame, destrúyelo correctamente
-            if hasattr(self, 'main_frame') and self.main_frame.winfo_exists():
-                self.main_frame.destroy()
+            # Limpiar widgets existentes de forma segura
+            self.cleanup_widgets()
             # Frame principal con color de fondo
             self.main_frame = ctk.CTkFrame(self, fg_color="#FFFFFF")
             self.main_frame.pack(fill="both", expand=True, padx=20, pady=20)
@@ -99,18 +98,28 @@ class LoginApp(ctk.CTkFrame):
             try:
                 email = self.email_entry.get().strip()
                 password = self.password_entry.get().strip()
+                
                 # Validar campos vacíos
                 if not email or not password:
-                    self.hide_spinner()
-                    messagebox.showwarning("Advertencia", "Por favor complete todos los campos")
+                    # Verificar que el widget aún existe antes de ocultar spinner
+                    if hasattr(self, 'main_frame') and self.main_frame.winfo_exists():
+                        self.hide_spinner()
+                        messagebox.showwarning("Advertencia", "Por favor complete todos los campos")
                     return
+                
                 from src.core.config import AUTH_ENDPOINTS
                 from src.shared.utils import APIHandler
                 data = {"email": email, "password": password}
                 print(f"Intentando login con: {data}")
                 response = APIHandler.make_request('post', AUTH_ENDPOINTS['login'], data=data)
                 print(f"Respuesta de la API: {response}")
+                
+                # Verificar que el widget aún existe antes de continuar
+                if not (hasattr(self, 'main_frame') and self.main_frame.winfo_exists()):
+                    return
+                
                 self.hide_spinner()
+                
                 if response['status_code'] == 200 and 'token' in response['data']:
                     token = response['data']['token']
                     user = response['data'].get('user', {})
@@ -145,11 +154,15 @@ class LoginApp(ctk.CTkFrame):
                 import traceback
                 print("Error en el inicio de sesión:", e)
                 traceback.print_exc()
-                self.hide_spinner()
-                messagebox.showerror("Error", f"Error en el inicio de sesión: {str(e)}")
-        # Mostrar spinner de carga y lanzar hilo
-        self.show_spinner()
-        threading.Thread(target=do_login, daemon=True).start()
+                # Verificar que el widget aún existe antes de ocultar spinner
+                if hasattr(self, 'main_frame') and self.main_frame.winfo_exists():
+                    self.hide_spinner()
+                    messagebox.showerror("Error", f"Error en el inicio de sesión: {str(e)}")
+        
+        # Mostrar spinner de carga y lanzar hilo solo si el widget existe
+        if hasattr(self, 'main_frame') and self.main_frame.winfo_exists():
+            self.show_spinner()
+            threading.Thread(target=do_login, daemon=True).start()
 
     def show_spinner(self):
         # Overlay "semiransparente" simulado con gris oscuro
@@ -173,24 +186,44 @@ class LoginApp(ctk.CTkFrame):
         self.animate_spinner()
 
     def animate_spinner(self):
-        if not hasattr(self, 'spinner_canvas') or not self.spinner_running:
+        # Verificar que el canvas aún existe y el spinner está corriendo
+        if not self.spinner_running or not hasattr(self, 'spinner_canvas'):
             return
+        try:
+            if not self.spinner_canvas.winfo_exists():
+                return
+        except Exception:
+            return
+            
         self.spinner_canvas.delete("all")
         # Dibuja un arco circular animado
         extent = 270  # Arco de 270 grados
         self.spinner_canvas.create_oval(6, 6, 42, 42, outline="#E0E0E0", width=5)  # Fondo gris claro
         self.spinner_canvas.create_arc(6, 6, 42, 42, start=self.spinner_angle, extent=extent, style="arc", outline="#2E6B5C", width=5)
         self.spinner_angle = (self.spinner_angle + 12) % 360
-        self.spinner_canvas.after(40, self.animate_spinner)
+        
+        # Verificar nuevamente antes de programar la siguiente animación
+        if self.spinner_running and hasattr(self, 'spinner_canvas'):
+            try:
+                if self.spinner_canvas.winfo_exists():
+                    self.spinner_canvas.after(40, self.animate_spinner)
+            except Exception:
+                pass  # Ignorar errores si el widget ya no existe
 
     def hide_spinner(self):
         self.spinner_running = False
-        if hasattr(self, 'spinner_overlay'):
-            self.spinner_overlay.destroy()
-        if hasattr(self, 'spinner_shadow'):
-            self.spinner_shadow.destroy()
-        if hasattr(self, 'spinner_frame'):
-            self.spinner_frame.destroy()
+        # Destruir widgets de spinner de forma segura
+        for attr in ['spinner_overlay', 'spinner_shadow', 'spinner_frame', 'spinner_canvas']:
+            if hasattr(self, attr):
+                widget = getattr(self, attr)
+                try:
+                    if widget and widget.winfo_exists():
+                        widget.destroy()
+                except Exception:
+                    pass  # Ignorar errores de destrucción
+                finally:
+                    if hasattr(self, attr):
+                        delattr(self, attr)
 
     # Eliminado: no se permite registro en este sistema
     def show_register(self):
@@ -198,17 +231,55 @@ class LoginApp(ctk.CTkFrame):
 
     def show_login(self):
         try:
-            for widget in self.main_frame.winfo_children():
-                widget.destroy()
+            if hasattr(self, 'main_frame') and self.main_frame.winfo_exists():
+                self.cleanup_widgets()
             self.create_widgets()
         except Exception as e:
             messagebox.showerror("Error", f"Error al mostrar el login: {str(e)}")
 
+    def cleanup_widgets(self):
+        """Limpia widgets de forma segura para evitar errores de Tcl"""
+        # Detener spinner si está corriendo
+        if hasattr(self, 'spinner_running'):
+            self.spinner_running = False
+        
+        # Destruir widgets de spinner primero
+        self.hide_spinner()
+        
+        # Destruir main_frame y sus hijos de forma segura
+        if hasattr(self, 'main_frame'):
+            try:
+                if self.main_frame.winfo_exists():
+                    # Destruir widgets hijos primero
+                    for child in self.main_frame.winfo_children():
+                        try:
+                            if child.winfo_exists():
+                                child.destroy()
+                        except Exception:
+                            pass
+                    # Luego destruir el frame principal
+                    self.main_frame.destroy()
+            except Exception:
+                pass  # Ignorar errores de destrucción
+            finally:
+                if hasattr(self, 'main_frame'):
+                    delattr(self, 'main_frame')
+
     # Manejo seguro del cierre de la app
     def safe_close(self):
         try:
-            self.parent.destroy()
+            # Limpiar recursos antes de cerrar
+            self.cleanup_widgets()
+            if hasattr(self, 'parent') and self.parent.winfo_exists():
+                self.parent.destroy()
         except Exception as e:
             import traceback
             print("Error al cerrar la aplicación:", e)
             traceback.print_exc()
+    
+    def __del__(self):
+        """Destructor para limpieza de recursos"""
+        try:
+            self.cleanup_widgets()
+        except Exception:
+            pass  # Ignorar errores en el destructor

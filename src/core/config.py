@@ -52,6 +52,17 @@ NOTIFICATIONS_ENDPOINTS = {
     'mark_read': f"{API_BASE_URL}/admin/notificaciones/{{id}}/read"
 }
 
+# Endpoints de Pagos
+PAYMENTS_ENDPOINTS = {
+    'list': f"{API_BASE_URL}/admin/payments",
+    'statistics': f"{API_BASE_URL}/admin/payments/statistics",
+    'detail': f"{API_BASE_URL}/admin/payments/{{id}}",
+    'details': f"{API_BASE_URL}/admin/payments/{{id}}/details",  # Detalles completos
+    'order_payment': f"{API_BASE_URL}/orders/{{order_id}}/payment",
+    'confirm_payment': f"{API_BASE_URL}/payments/confirm",
+    'payment_methods': f"{API_BASE_URL}/payments/methods"
+}
+
 # Endpoints de Reportes
 REPORTS_ENDPOINTS = {
     'sales': f"{API_BASE_URL}/admin/reportes/ventas",
