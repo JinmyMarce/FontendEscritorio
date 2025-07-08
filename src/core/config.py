@@ -36,13 +36,17 @@ INVENTORY_ENDPOINTS = {
 
 # Endpoints de Pedidos
 ORDERS_ENDPOINTS = {
-    'list': f"{API_BASE_URL}/orders", 
-    'detail': f"{API_BASE_URL}/orders/{{id}}", 
-    'create': f"{API_BASE_URL}/pedidos",
-    'update': f"{API_BASE_URL}/orders/{{id}}/status", 
-    'delete': f"{API_BASE_URL}/pedidos/{{id}}",
-    'shipping': f"{API_BASE_URL}/pedidos/{{id}}/envio"
+    # Para la gestión de pedidos del ADMIN
+    'list': f"{API_BASE_URL}/admin/orders",   # GET todos los pedidos (admin)
+    'detail': f"{API_BASE_URL}/admin/orders/{{id}}",  # GET detalle de pedido (admin)
+    'update': f"{API_BASE_URL}/admin/orders/{{id}}/status",  # PATCH actualizar/cambiar estado (admin)
+    # Para el resto de usuarios
+    'list_user': f"{API_BASE_URL}/orders",  # GET pedidos del usuario autenticado
+    'create': f"{API_BASE_URL}/orders",  # POST crear pedido
+    'cancel': f"{API_BASE_URL}/orders/{{id}}/cancel",  # PATCH cancelar pedido
+    'payment': f"{API_BASE_URL}/orders/{{id}}/payment"  # GET pagos del pedido
 }
+# NOTA: El endpoint PATCH /api/v1/admin/orders/{id}/status permite cambiar a cualquier estado válido, incluyendo 'completado'.
 
 # Endpoints de Notificaciones
 NOTIFICATIONS_ENDPOINTS = {

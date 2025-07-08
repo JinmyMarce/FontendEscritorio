@@ -8,6 +8,8 @@ from src.interfaces.management.notifications_management import GestionNotificaci
 from src.interfaces.management.payments_management import GestionPagos
 from src.shared.image_handler import ImageHandler
 import tkinter.messagebox as messagebox
+from src.core.config import ORDERS_ENDPOINTS
+from src.shared.utils import APIHandler, SessionManager
 
 # Configuración de la UI
 UI_CONFIG = {
@@ -82,7 +84,7 @@ class DashboardApp(ctk.CTkFrame):
             self.add_nav_button("🛒 Pedidos", self.mostrar_pedidos)
             self.add_nav_button("👥 Clientes", self.mostrar_clientes)
             self.add_nav_button("🔔 Notificaciones", self.mostrar_notificaciones)
-            self.add_nav_button("💰 Gestión de Pagos", self.mostrar_pagos)
+            self.add_nav_button("💰 Pagos", self.mostrar_pagos)
             
             # Botón de cerrar sesión
             self.add_nav_button("🚪 Cerrar Sesión", self.cerrar_sesion)
@@ -187,7 +189,7 @@ class DashboardApp(ctk.CTkFrame):
                     "command": self.mostrar_notificaciones
                 },
                 {
-                    "icon": "�",
+                    "icon": "💰",
                     "title": "Gestión de Pagos",
                     "desc": "Administre los pagos y transacciones",
                     "command": self.mostrar_pagos
@@ -276,6 +278,19 @@ class DashboardApp(ctk.CTkFrame):
     def cerrar_sesion(self):
         try:
             if messagebox.askyesno("Cerrar Sesión", "¿Está seguro que desea cerrar sesión?"):
-                self.on_logout()
+                if self.on_logout is not None:
+                    self.on_logout()
         except Exception as e:
             messagebox.showerror("Error", f"Error al cerrar sesión: {str(e)}")
+
+def obtener_pedido_completo_backend(pedido_id):
+    try:
+        url = ORDERS_ENDPOINTS['detail'].format(id=pedido_id)
+        token = SessionManager.get_token()
+        headers = {'Authorization': f'Bearer {token}'} if token else {}
+        response = APIHandler.make_request('get', url, headers=headers)
+        if response.get('status_code') == 200:
+            return response.get('data')
+    except Exception as e:
+        print(f"Error al obtener pedido completo: {e}")
+    return None

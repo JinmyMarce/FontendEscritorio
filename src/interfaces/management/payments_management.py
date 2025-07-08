@@ -2,12 +2,13 @@ import customtkinter as ctk
 import tkinter.messagebox as messagebox
 import tkinter as tk
 from tkinter import ttk
-from src.core.config import PAYMENTS_ENDPOINTS, UI_CONFIG
+from src.core.config import PAYMENTS_ENDPOINTS, UI_CONFIG, ORDERS_ENDPOINTS
 from src.shared.utils import APIHandler, UIHelper, SessionManager, DataValidator, DateTimeHelper
 import os
 from datetime import datetime, timedelta
 from PIL import Image, ImageTk
 from src.shared.image_handler import ImageHandler
+from src.interfaces.management.orders_management import DetallesPedidoDialog
 
 # --- COLORES ---
 PRIMARY_COLOR = "#3A6B5D"
@@ -65,7 +66,19 @@ def obtener_metodos_pago():
         print("Error al obtener métodos de pago:", e)
     return []
 
-
+def obtener_pedido_completo_backend(pedido_id):
+    from src.core.config import ORDERS_ENDPOINTS
+    from src.shared.utils import APIHandler, SessionManager
+    try:
+        url = ORDERS_ENDPOINTS['detail'].format(id=pedido_id)
+        token = SessionManager.get_token()
+        headers = {'Authorization': f'Bearer {token}'} if token else {}
+        response = APIHandler.make_request('get', url, headers=headers)
+        if response.get('status_code') == 200:
+            return response.get('data')
+    except Exception as e:
+        print(f"Error al obtener pedido completo: {e}")
+    return None
 
 # --- CLASE PRINCIPAL DE INTERFAZ ---
 class GestionPagos(ctk.CTkFrame):
@@ -108,7 +121,7 @@ class GestionPagos(ctk.CTkFrame):
                 # Cargar y redimensionar icono
                 icon = Image.open(os.path.join("assets", "images", "icons", "pagos.png"))
                 icon = icon.resize((32, 32))
-                self.icon_image = ImageTk.PhotoImage(icon)
+                self.icon_image = ctk.CTkImage(light_image=icon, dark_image=icon, size=(32, 32))
                 ctk.CTkLabel(
                     title_content,
                     image=self.icon_image,
@@ -555,7 +568,7 @@ class GestionPagos(ctk.CTkFrame):
                         # Restablecer el flag cuando se cierre el diálogo
                         def on_dialog_close():
                             self._dialog_abierto = False
-                        if hasattr(dialog, 'dialog'):
+                        if hasattr(dialog, 'dialog') and dialog.dialog is not None and hasattr(dialog.dialog, 'bind'):
                             dialog.dialog.bind('<Destroy>', lambda e: on_dialog_close())
                     else:
                         messagebox.showerror("Error", "Estructura de datos de pago inválida")
@@ -600,6 +613,7 @@ class DetallesPagoCompletoDialog:
     """Diálogo mejorado para mostrar detalles completos de un pago con diseño compacto y eficiente"""
     
     def __init__(self, parent, pago):
+        self.parent = parent  # Guarda el parent para usarlo en los botones
         self.dialog = None
         self.closed = False
         try:
@@ -657,7 +671,7 @@ class DetallesPagoCompletoDialog:
     def safe_close(self):
         """Cierre seguro del diálogo"""
         try:
-            if hasattr(self, 'dialog') and self.dialog:
+            if hasattr(self, 'dialog') and self.dialog is not None:
                 try:
                     if self.dialog.winfo_exists():
                         self.dialog.grab_release()
@@ -756,6 +770,7 @@ class DetallesPagoCompletoDialog:
                 text_color="#FFFFFF",
                 height=25,
                 width=80,
+                command=lambda p=pedido: self.abrir_detalle_pedido_local(p)
             )
             ver_pedido_btn.pack(pady=(5, 15))
             
@@ -1032,7 +1047,7 @@ class DetallesPagoCompletoDialog:
         """Actualizar estado del pago desde el diálogo de detalles completo"""
         try:
             # Guardar referencia al parent antes de cerrar
-            parent_window = self.dialog.master if hasattr(self, 'dialog') else None
+            parent_window = self.parent if hasattr(self, 'parent') else None
             self.safe_close()
             # Crear diálogo de actualización de estado
             if parent_window:
@@ -1041,6 +1056,58 @@ class DetallesPagoCompletoDialog:
         except Exception as e:
             messagebox.showerror("Error", f"Error al actualizar estado: {str(e)}")
 
+    def abrir_detalle_pedido_local(self, pedido_snapshot):
+        from tkinter import messagebox
+        pedido_id = pedido_snapshot.get('id_pedido') or pedido_snapshot.get('id') or pedido_snapshot.get('id_pedido_snapshot')
+        if not pedido_id:
+            messagebox.showerror("Error", "No se encontró el ID del pedido.")
+            return
+        
+        # Buscar en la lista local de pedidos (como en la gestión de pedidos)
+        try:
+            # Importar la función que obtiene pedidos localmente
+            from src.interfaces.management.orders_management import obtener_pedidos
+            
+            # Obtener la lista actualizada de pedidos
+            pedidos = obtener_pedidos()
+            
+            # Buscar el pedido por ID
+            pedido_completo = None
+            for pedido in pedidos:
+                if str(pedido.get("id_pedido")) == str(pedido_id):
+                    pedido_completo = pedido
+                    break
+            
+            if pedido_completo:
+                from src.interfaces.management.orders_management import DetallesPedidoDialog
+                DetallesPedidoDialog(self.parent, pedido_completo)
+            else:
+                messagebox.showerror("Error", f"No se encontró el pedido #{pedido_id} en la lista local.")
+                
+        except Exception as e:
+            print(f"Error al buscar pedido local: {e}")
+            messagebox.showerror("Error", f"Error al obtener el detalle del pedido: {str(e)}")
+
+    def abrir_detalle_pedido_backend(self, pedido_snapshot):
+        from tkinter import messagebox
+        pedido_id = pedido_snapshot.get('id_pedido') or pedido_snapshot.get('id') or pedido_snapshot.get('id_pedido_snapshot')
+        if not pedido_id:
+            messagebox.showerror("Error", "No se encontró el ID del pedido.")
+            return
+        print(f"[Pagos] Solicitando detalle de pedido con ID: {pedido_id}")
+        pedido_completo = obtener_pedido_completo_backend(pedido_id)
+        print(f"[Pagos] Respuesta del backend para pedido {pedido_id}: {pedido_completo}")
+        if pedido_completo:
+            # Validar que el pedido tenga datos clave (usuario, items, etc.)
+            if not pedido_completo.get('usuario') or not pedido_completo.get('pedido_items'):
+                messagebox.showwarning(
+                    "Advertencia",
+                    "El pedido no tiene todos los datos necesarios (usuario, productos, etc.).\n\nVerifica que el backend devuelva el pedido con todas las relaciones."
+                )
+            from src.interfaces.management.orders_management import DetallesPedidoDialog
+            DetallesPedidoDialog(self.parent, pedido_completo)
+        else:
+            messagebox.showerror("Error", "No se pudo obtener el detalle completo del pedido.")
 
 class EstadoPagoDialog:
     """Diálogo para actualizar el estado de un pago"""
@@ -1193,7 +1260,7 @@ class EstadoPagoDialog:
     def safe_close(self):
         """Cierre seguro del diálogo"""
         try:
-            if hasattr(self, 'dialog') and self.dialog:
+            if hasattr(self, 'dialog') and self.dialog is not None:
                 try:
                     if self.dialog.winfo_exists():
                         self.dialog.grab_release()
