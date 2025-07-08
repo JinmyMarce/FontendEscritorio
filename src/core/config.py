@@ -48,8 +48,15 @@ ORDERS_ENDPOINTS = {
 NOTIFICATIONS_ENDPOINTS = {
     'list': f"{API_BASE_URL}/admin/notificaciones",
     'detail': f"{API_BASE_URL}/admin/notificaciones/{{id}}",
-    'send': f"{API_BASE_URL}/admin/notificaciones/send",
-    'mark_read': f"{API_BASE_URL}/admin/notificaciones/{{id}}/read"
+    'send': f"{API_BASE_URL}/admin/notificaciones",
+    'send_to_all': f"{API_BASE_URL}/admin/notificaciones",
+    'mark_read': f"{API_BASE_URL}/me/notificaciones/{{id}}",
+    'delete': f"{API_BASE_URL}/admin/notificaciones/{{id}}",
+    'send_email': f"{API_BASE_URL}/notificaciones/enviar-email",
+    'send_campanita': f"{API_BASE_URL}/notificaciones/enviar-campanita",
+    'send_campanita_email': f"{API_BASE_URL}/notificaciones/enviar-campanita-con-email",
+    'users_list': f"{API_BASE_URL}/admin/users/registered",
+    'users_count': f"{API_BASE_URL}/admin/users/count"
 }
 
 # Endpoints de Pagos
