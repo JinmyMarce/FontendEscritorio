@@ -19,6 +19,10 @@ class ProductsSection(ctk.CTkFrame):
         self.productos_filtrados = []
         self.producto_seleccionado = None
         
+        # Variables para el combobox de estado
+        self.estado_combobox = None
+        self.estado_item_seleccionado = None
+        
         # Configurar layout responsivo
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)  # La tabla se expande
@@ -122,6 +126,14 @@ class ProductsSection(ctk.CTkFrame):
         # Frame para la tabla
         tabla_frame = ctk.CTkFrame(self, fg_color="#FFFFFF", corner_radius=10)
         tabla_frame.grid(row=2, column=0, pady=(0, 20), padx=20, sticky="nsew")
+        tabla_frame.grid_columnconfigure(0, weight=1)
+        tabla_frame.grid_rowconfigure(0, weight=1)
+
+        # Frame contenedor para tabla y combobox
+        self.tabla_container = ctk.CTkFrame(tabla_frame, fg_color="transparent")
+        self.tabla_container.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
+        self.tabla_container.grid_columnconfigure(0, weight=1)
+        self.tabla_container.grid_rowconfigure(0, weight=1)
 
         # Crear la tabla
         style = ttk.Style()
@@ -145,7 +157,7 @@ class ProductsSection(ctk.CTkFrame):
 
         # Definir columnas optimizadas
         columns = ("id", "nombre", "descripcion", "categoria", "precio", "estado", "peso")
-        self.tabla = ttk.Treeview(tabla_frame, columns=columns, show='headings', style="Productos.Treeview")
+        self.tabla = ttk.Treeview(self.tabla_container, columns=columns, show='headings', style="Productos.Treeview")
         
         # Configurar encabezados y columnas con anchos optimizados
         self.tabla.heading("id", text="ID")
@@ -166,15 +178,24 @@ class ProductsSection(ctk.CTkFrame):
         self.tabla.column("peso", width=120, minwidth=100, anchor="center")
 
         # Scrollbar
-        scrollbar = ttk.Scrollbar(tabla_frame, orient="vertical", command=self.tabla.yview)
+        scrollbar = ttk.Scrollbar(self.tabla_container, orient="vertical", command=self.tabla.yview)
         self.tabla.configure(yscrollcommand=scrollbar.set)
         
-        self.tabla.pack(side="left", fill="both", expand=True, padx=20, pady=20)
-        scrollbar.pack(side="right", fill="y")
+        self.tabla.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+
+        # Configurar grid del contenedor de tabla
+        self.tabla_container.grid_columnconfigure(0, weight=1)
+        self.tabla_container.grid_rowconfigure(0, weight=1)
+
+        # Variables para el combobox de estado
+        self.estado_combobox = None
+        self.estado_item_seleccionado = None
 
         # Eventos de la tabla
         self.tabla.bind('<<TreeviewSelect>>', self.on_select)
         self.tabla.bind('<Double-1>', self.on_double_click)
+        self.tabla.bind('<Button-1>', self.on_tabla_click)
             
     def cargar_productos(self):
         """Cargar productos desde la API"""
@@ -249,9 +270,9 @@ class ProductsSection(ctk.CTkFrame):
                 if estado_filtro != "Todos":
                     estado_producto = producto.get('estado', '').lower()
                     if estado_filtro == "Activos":
-                        coincide_estado = estado_producto == "activo"
+                        coincide_estado = estado_producto in ['activo', 'active', '1'] or str(estado_producto) == '1'
                     elif estado_filtro == "Inactivos":
-                        coincide_estado = estado_producto == "inactivo"
+                        coincide_estado = estado_producto in ['inactivo', 'inactive', '0'] or str(estado_producto) == '0'
                 
                 if coincide_texto and coincide_estado:
                     self.productos_filtrados.append(producto)
@@ -265,6 +286,9 @@ class ProductsSection(ctk.CTkFrame):
     def actualizar_tabla(self):
         """Actualizar tabla de productos"""
         try:
+            # Ocultar combobox si está visible
+            self.ocultar_estado_combobox()
+            
             # Limpiar tabla
             for item in self.tabla.get_children():
                 self.tabla.delete(item)
@@ -280,8 +304,16 @@ class ProductsSection(ctk.CTkFrame):
                 nombre = producto.get("nombre", "")
                 descripcion = producto.get("descripcion", "")
                 precio = producto.get("precio", "0")
-                estado = producto.get("estado", "").title()
                 peso = producto.get("peso", "N/A")
+                
+                # Normalizar estado para mostrar
+                estado_raw = producto.get("estado", "").lower()
+                if estado_raw in ['activo', 'active', '1', 1]:
+                    estado_display = "🟢 Activo"
+                elif estado_raw in ['inactivo', 'inactive', '0', 0]:
+                    estado_display = "🔴 Inactivo"
+                else:
+                    estado_display = "❓ Desconocido"
                 
                 # Obtener categoría (puede ser objeto o string)
                 categoria_info = producto.get("categoria", {})
@@ -303,7 +335,7 @@ class ProductsSection(ctk.CTkFrame):
                     descripcion,
                     categoria_nombre,
                     precio_formateado,
-                    estado,
+                    estado_display,
                     peso
                 ))
                 
@@ -333,7 +365,7 @@ class ProductsSection(ctk.CTkFrame):
                 self,
                 "Editar Producto",
                 producto=self.producto_seleccionado,
-                callback_guardar=self.actualizar_producto_modal,
+                callback_guardar=self.actualizar_producto_modal_patch,  # Usar versión PATCH temporalmente
                 callback_eliminar=self.eliminar_producto_modal
             )
         except Exception as e:
@@ -346,19 +378,24 @@ class ProductsSection(ctk.CTkFrame):
             token = SessionManager.get_token()
             headers = {'Authorization': f'Bearer {token}'} if token else {}
             
-            # Preparar datos para envío
+            # Preparar datos para envío con tipos correctos
             data = {
-                'nombre': datos_producto['nombre'],
-                'descripcion': datos_producto['descripcion'],
-                'precio': datos_producto['precio'],
-                'peso': datos_producto['peso'],
-                'categorias_id_categoria': datos_producto['categoria_id'],
+                'nombre': str(datos_producto['nombre']),
+                'descripcion': str(datos_producto['descripcion']),
+                'precio': str(datos_producto['precio']),
+                'peso': str(datos_producto['peso']),
+                'categorias_id_categoria': str(datos_producto['categoria_id']),
                 'estado': '1'  # Por defecto activo
             }
             
             # Si hay stock, agregarlo
             if datos_producto.get('stock'):
-                data['stock'] = datos_producto['stock']
+                data['stock'] = str(datos_producto['stock'])
+            
+            # Debug: Imprimir datos que se van a enviar
+            print(f"Creando producto...")
+            print(f"URL: {url}")
+            print(f"Datos a enviar: {data}")
             
             files = {}
             # Si hay imagen, prepararla para upload
@@ -366,6 +403,8 @@ class ProductsSection(ctk.CTkFrame):
                 try:
                     with open(datos_producto['imagen_path'], 'rb') as f:
                         files['imagen'] = ('image.jpg', f, 'image/jpeg')
+                        
+                        print("Enviando creación con imagen...")
                         
                         # Usar requests directamente para multipart/form-data
                         response = requests.post(
@@ -375,51 +414,322 @@ class ProductsSection(ctk.CTkFrame):
                             headers={'Authorization': f'Bearer {token}'} if token else {}
                         )
                         
+                        print(f"Respuesta status: {response.status_code}")
+                        
                         if response.status_code == 201:
                             messagebox.showinfo("Éxito", "Producto creado exitosamente")
                             self.cargar_productos()
                             return True
                         else:
-                            error_msg = response.json().get('message', 'Error al crear producto')
-                            messagebox.showerror("Error", error_msg)
+                            try:
+                                error_data = response.json()
+                                print(f"Error response data: {error_data}")
+                                error_msg = error_data.get('message', 'Error al crear producto')
+                                # Si hay detalles de validación, mostrarlos
+                                if 'errors' in error_data:
+                                    error_details = []
+                                    for field, messages in error_data['errors'].items():
+                                        if isinstance(messages, list):
+                                            error_details.extend([f"{field}: {msg}" for msg in messages])
+                                        else:
+                                            error_details.append(f"{field}: {messages}")
+                                    error_msg += "\n\nDetalles:\n" + "\n".join(error_details)
+                            except:
+                                error_msg = f"Error al crear producto (Código: {response.status_code})\nRespuesta: {response.text}"
+                            messagebox.showerror("Error de Validación", error_msg)
                             return False
                             
                 except Exception as e:
                     messagebox.showerror("Error", f"Error al cargar imagen: {str(e)}")
                     return False
             else:
+                print("Enviando creación sin imagen...")
+                
                 # Sin imagen, usar APIHandler normal
                 response = APIHandler.make_request('POST', url, headers=headers, data=data)
+                
+                print(f"Respuesta APIHandler: {response}")
+                
                 if response['status_code'] == 201:
                     messagebox.showinfo("Éxito", "Producto creado exitosamente")
                     self.cargar_productos()
                     return True
                 else:
-                    error_msg = response.get('data', {}).get('message', 'Error al crear producto')
-                    messagebox.showerror("Error", error_msg)
+                    error_data = response.get('data', {})
+                    error_msg = error_data.get('message', 'Error al crear producto')
+                    
+                    # Si hay detalles de validación, mostrarlos
+                    if isinstance(error_data, dict) and 'errors' in error_data:
+                        error_details = []
+                        for field, messages in error_data['errors'].items():
+                            if isinstance(messages, list):
+                                error_details.extend([f"{field}: msg" for msg in messages])
+                            else:
+                                error_details.append(f"{field}: {messages}")
+                        error_msg += "\n\nDetalles:\n" + "\n".join(error_details)
+                    
+                    messagebox.showerror("Error de Validación", error_msg)
                     return False
                     
         except Exception as e:
+            print(f"Excepción en guardar_producto_modal: {str(e)}")
             messagebox.showerror("Error", f"Error al guardar producto: {str(e)}")
             return False
 
     def actualizar_producto_modal(self, producto_id, datos_producto):
         """Callback para actualizar producto desde modal"""
         try:
-            # TODO: Implementar actualización de producto
-            messagebox.showinfo("Info", f"Actualizar producto ID: {producto_id}")
-            return True
+            url = INVENTORY_MANAGEMENT_ENDPOINTS['products']['update'].format(id=producto_id)
+            token = SessionManager.get_token()
+            headers = {'Authorization': f'Bearer {token}'} if token else {}
+            
+            # Preparar datos para envío con tipos correctos
+            data = {
+                'nombre': str(datos_producto['nombre']),
+                'descripcion': str(datos_producto['descripcion']),
+                'precio': str(datos_producto['precio']),  # Backend puede esperar string
+                'peso': str(datos_producto['peso']),
+                'categorias_id_categoria': str(datos_producto['categoria_id']),  # Backend puede esperar string
+                'estado': '1'  # Mantener activo por defecto
+            }
+            
+            # Debug: Imprimir datos que se van a enviar
+            print(f"Actualizando producto ID: {producto_id}")
+            print(f"URL: {url}")
+            print(f"Datos a enviar: {data}")
+            
+            files = {}
+            # Si hay imagen nueva, prepararla para upload
+            if datos_producto.get('imagen_path'):
+                try:
+                    with open(datos_producto['imagen_path'], 'rb') as f:
+                        files['imagen'] = ('image.jpg', f, 'image/jpeg')
+                        
+                        print("Enviando actualización con imagen...")
+                        
+                        # Usar requests directamente para multipart/form-data con PUT
+                        response = requests.put(
+                            url,
+                            data=data,
+                            files=files,
+                            headers={'Authorization': f'Bearer {token}'} if token else {}
+                        )
+                        
+                        print(f"Respuesta status: {response.status_code}")
+                        print(f"Respuesta headers: {dict(response.headers)}")
+                        
+                        if response.status_code == 200:
+                            messagebox.showinfo("Éxito", "Producto actualizado exitosamente")
+                            self.cargar_productos()
+                            return True
+                        else:
+                            try:
+                                error_data = response.json()
+                                print(f"Error response data: {error_data}")
+                                error_msg = error_data.get('message', 'Error al actualizar producto')
+                                # Si hay detalles de validación, mostrarlos
+                                if 'errors' in error_data:
+                                    error_details = []
+                                    for field, messages in error_data['errors'].items():
+                                        if isinstance(messages, list):
+                                            error_details.extend([f"{field}: msg" for msg in messages])
+                                        else:
+                                            error_details.append(f"{field}: {messages}")
+                                    error_msg += "\n\nDetalles:\n" + "\n".join(error_details)
+                            except:
+                                error_msg = f"Error al actualizar producto (Código: {response.status_code})\nRespuesta: {response.text}"
+                            messagebox.showerror("Error de Validación", error_msg)
+                            return False
+                            
+                except Exception as e:
+                    messagebox.showerror("Error", f"Error al cargar imagen: {str(e)}")
+                    return False
+            else:
+                print("Enviando actualización sin imagen...")
+                
+                # Sin imagen nueva, usar APIHandler normal con PUT
+                response = APIHandler.make_request('PUT', url, headers=headers, data=data)
+                
+                print(f"Respuesta APIHandler: {response}")
+                
+                if response['status_code'] == 200:
+                    messagebox.showinfo("Éxito", "Producto actualizado exitosamente")
+                    self.cargar_productos()
+                    return True
+                else:
+                    error_data = response.get('data', {})
+                    error_msg = error_data.get('message', 'Error al actualizar producto')
+                    
+                    # Si hay detalles de validación, mostrarlos
+                    if isinstance(error_data, dict) and 'errors' in error_data:
+                        error_details = []
+                        for field, messages in error_data['errors'].items():
+                            if isinstance(messages, list):
+                                error_details.extend([f"{field}: msg" for msg in messages])
+                            else:
+                                error_details.append(f"{field}: {messages}")
+                        error_msg += "\n\nDetalles:\n" + "\n".join(error_details)
+                    
+                    messagebox.showerror("Error de Validación", error_msg)
+                    return False
+                    
         except Exception as e:
+            print(f"Excepción en actualizar_producto_modal: {str(e)}")
             messagebox.showerror("Error", f"Error al actualizar producto: {str(e)}")
+            return False
+
+    def actualizar_producto_modal_patch(self, producto_id, datos_producto):
+        """Callback alternativo usando PATCH en lugar de PUT"""
+        try:
+            url = INVENTORY_MANAGEMENT_ENDPOINTS['products']['partial_update'].format(id=producto_id)
+            token = SessionManager.get_token()
+            headers = {'Authorization': f'Bearer {token}'} if token else {}
+            
+            # Preparar datos para envío - solo campos que han cambiado
+            data = {}
+            
+            # Agregar solo los campos básicos necesarios
+            if datos_producto.get('nombre'):
+                data['nombre'] = str(datos_producto['nombre'])
+            if datos_producto.get('descripcion'):
+                data['descripcion'] = str(datos_producto['descripcion'])
+            if datos_producto.get('precio'):
+                data['precio'] = float(datos_producto['precio'])  # Probar como número
+            if datos_producto.get('peso'):
+                data['peso'] = str(datos_producto['peso'])
+            if datos_producto.get('categoria_id'):
+                data['categorias_id_categoria'] = int(datos_producto['categoria_id'])  # Probar como número
+            
+            # Debug: Imprimir datos que se van a enviar
+            print(f"Actualizando producto ID: {producto_id} con PATCH")
+            print(f"URL: {url}")
+            print(f"Datos a enviar: {data}")
+            
+            files = {}
+            # Si hay imagen nueva, prepararla para upload
+            if datos_producto.get('imagen_path'):
+                try:
+                    with open(datos_producto['imagen_path'], 'rb') as f:
+                        files['imagen'] = ('image.jpg', f, 'image/jpeg')
+                        
+                        print("Enviando actualización PATCH con imagen...")
+                        
+                        # Usar requests directamente para multipart/form-data con PATCH
+                        response = requests.patch(
+                            url,
+                            data=data,
+                            files=files,
+                            headers={'Authorization': f'Bearer {token}'} if token else {}
+                        )
+                        
+                        print(f"Respuesta status: {response.status_code}")
+                        print(f"Respuesta text: {response.text}")
+                        
+                        if response.status_code == 200:
+                            messagebox.showinfo("Éxito", "Producto actualizado exitosamente")
+                            self.cargar_productos()
+                            return True
+                        else:
+                            try:
+                                error_data = response.json()
+                                print(f"Error response data: {error_data}")
+                                error_msg = error_data.get('message', 'Error al actualizar producto')
+                                if 'errors' in error_data:
+                                    error_details = []
+                                    for field, messages in error_data['errors'].items():
+                                        if isinstance(messages, list):
+                                            error_details.extend([f"{field}: {msg}" for msg in messages])
+                                        else:
+                                            error_details.append(f"{field}: {messages}")
+                                    error_msg += "\n\nDetalles:\n" + "\n".join(error_details)
+                            except:
+                                error_msg = f"Error al actualizar producto (Código: {response.status_code})\nRespuesta: {response.text}"
+                            messagebox.showerror("Error de Validación (PATCH)", error_msg)
+                            return False
+                            
+                except Exception as e:
+                    messagebox.showerror("Error", f"Error al cargar imagen: {str(e)}")
+                    return False
+            else:
+                print("Enviando actualización PATCH sin imagen...")
+                
+                # Sin imagen nueva, usar APIHandler normal con PATCH
+                response = APIHandler.make_request('PATCH', url, headers=headers, data=data)
+                
+                print(f"Respuesta APIHandler PATCH: {response}")
+                
+                if response['status_code'] == 200:
+                    messagebox.showinfo("Éxito", "Producto actualizado exitosamente")
+                    self.cargar_productos()
+                    return True
+                else:
+                    error_data = response.get('data', {})
+                    error_msg = error_data.get('message', 'Error al actualizar producto')
+                    
+                    if isinstance(error_data, dict) and 'errors' in error_data:
+                        error_details = []
+                        for field, messages in error_data['errors'].items():
+                            if isinstance(messages, list):
+                                error_details.extend([f"{field}: msg" for msg in messages])
+                            else:
+                                error_details.append(f"{field}: {messages}")
+                        error_msg += "\n\nDetalles:\n" + "\n".join(error_details)
+                    
+                    messagebox.showerror("Error de Validación (PATCH)", error_msg)
+                    return False
+                    
+        except Exception as e:
+            print(f"Excepción en actualizar_producto_modal_patch: {str(e)}")
+            messagebox.showerror("Error", f"Error al actualizar producto (PATCH): {str(e)}")
             return False
 
     def eliminar_producto_modal(self, producto_id, nombre_producto):
         """Callback para eliminar producto desde modal"""
         try:
-            # TODO: Implementar eliminación de producto
-            messagebox.showinfo("Info", f"Eliminar producto: {nombre_producto}")
-            return True
+            # Confirmar eliminación
+            resultado = messagebox.askyesno(
+                "Confirmar Eliminación", 
+                f"¿Está seguro de que desea eliminar el producto '{nombre_producto}'?\n\nEsta acción no se puede deshacer.",
+                icon='warning'
+            )
+            
+            if not resultado:
+                return False
+            
+            url = INVENTORY_MANAGEMENT_ENDPOINTS['products']['delete'].format(id=producto_id)
+            token = SessionManager.get_token()
+            headers = {'Authorization': f'Bearer {token}'} if token else {}
+            
+            print(f"Eliminando producto ID: {producto_id}")
+            print(f"URL: {url}")
+            
+            response = APIHandler.make_request('DELETE', url, headers=headers)
+            
+            print(f"Respuesta eliminación: {response}")
+            
+            if response['status_code'] == 200 or response['status_code'] == 204:
+                messagebox.showinfo("Éxito", f"Producto '{nombre_producto}' eliminado exitosamente")
+                self.cargar_productos()
+                return True
+            else:
+                error_data = response.get('data', {})
+                error_msg = error_data.get('message', 'Error al eliminar producto')
+                
+                # Si hay detalles de error, mostrarlos
+                if isinstance(error_data, dict) and 'errors' in error_data:
+                    error_details = []
+                    for field, messages in error_data['errors'].items():
+                        if isinstance(messages, list):
+                            error_details.extend([f"{field}: {msg}" for msg in messages])
+                        else:
+                            error_details.append(f"{field}: {messages}")
+                    error_msg += "\n\nDetalles:\n" + "\n".join(error_details)
+                
+                messagebox.showerror("Error", error_msg)
+                return False
+                
         except Exception as e:
+            print(f"Excepción en eliminar_producto_modal: {str(e)}")
             messagebox.showerror("Error", f"Error al eliminar producto: {str(e)}")
             return False
 
@@ -452,6 +762,9 @@ class ProductsSection(ctk.CTkFrame):
     def on_select(self, event):
         """Manejar selección de producto en la tabla"""
         try:
+            # Ocultar combobox de estado si está visible
+            self.ocultar_estado_combobox()
+            
             seleccion = self.tabla.selection()
             if seleccion:
                 item = self.tabla.item(seleccion[0])
@@ -476,23 +789,194 @@ class ProductsSection(ctk.CTkFrame):
                 ModalDetalleProducto(self, self.producto_seleccionado)
         except Exception as e:
             print(f"Error en on_double_click: {str(e)}")
+        try:
+            if self.producto_seleccionado:
+                # Abrir modal de detalles del producto
+                ModalDetalleProducto(self, self.producto_seleccionado)
+        except Exception as e:
+            print(f"Error en on_double_click: {str(e)}")
 
-    # Métodos de compatibilidad con el sistema anterior
-    def actualizar_tabla_productos(self, filtro=""):
-        """Método legacy - redirige al nuevo método"""
-        self.actualizar_tabla()
+    def on_global_click(self, event):
+        """Manejar clic global para ocultar combobox"""
+        try:
+            # Verificar si el clic fue fuera de la tabla y del combobox
+            if (hasattr(event, 'widget') and 
+                event.widget != self.tabla and 
+                event.widget != self.estado_combobox):
+                self.ocultar_estado_combobox()
+        except Exception as e:
+            print(f"Error en on_global_click: {str(e)}")
 
-    def nuevo_producto(self):
-        """Método legacy - redirige al modal"""
-        self.abrir_modal_nuevo_producto()
-        
-    def refrescar_datos(self):
-        """Método público para refrescar los datos desde el exterior"""
-        self.cargar_productos()
-        
-    def obtener_producto_seleccionado(self):
-        """Obtener el producto seleccionado en la tabla"""
-        return self.producto_seleccionado
+    def on_tabla_click(self, event):
+        """Manejar clic en la tabla para mostrar combobox de estado"""
+        try:
+            # Identificar qué elemento fue clickeado
+            item = self.tabla.identify_row(event.y)
+            column = self.tabla.identify_column(event.x)
+            
+            # Ocultar combobox anterior si existe
+            self.ocultar_estado_combobox()
+            
+            # Solo mostrar combobox si se hizo clic en la columna de estado
+            if item and column == '#6':  # Columna de estado es la #6
+                self.mostrar_estado_combobox(item, event)
+                
+        except Exception as e:
+            print(f"Error en on_tabla_click: {str(e)}")
+
+    def mostrar_estado_combobox(self, item, event):
+        """Mostrar combobox para cambiar el estado del producto"""
+        try:
+            # Obtener información del item
+            valores = self.tabla.item(item, 'values')
+            if not valores:
+                return
+                
+            producto_id = valores[0]
+            estado_actual = valores[5]  # Columna de estado
+            
+            # Buscar el producto completo
+            producto_completo = None
+            for producto in self.productos_filtrados:
+                if str(producto.get('id_producto')) == str(producto_id):
+                    producto_completo = producto
+                    break
+                    
+            if not producto_completo:
+                return
+            
+            # Obtener posición y tamaño de la celda
+            bbox = self.tabla.bbox(item, '#6')
+            if not bbox:
+                return
+                
+            x, y, width, height = bbox
+            
+            # Determinar estado actual normalizado (remover emojis)
+            if "Activo" in estado_actual:
+                estado_normalizado = "Activo"
+            elif "Inactivo" in estado_actual:
+                estado_normalizado = "Inactivo"
+            else:
+                estado_normalizado = "Activo"  # Por defecto
+            
+            # Crear combobox
+            self.estado_combobox = ctk.CTkOptionMenu(
+                self.tabla_container,
+                values=["Activo", "Inactivo"],
+                command=lambda valor: self.cambiar_estado_producto(producto_completo, valor),
+                font=("Quicksand", 10),
+                width=width-5,
+                height=height-2,
+                fg_color="#4A934A",
+                button_color="#367832"
+            )
+            
+            # Establecer valor actual
+            self.estado_combobox.set(estado_normalizado)
+            
+            # Posicionar combobox sobre la celda
+            self.estado_combobox.place(x=x+2, y=y+1)
+            
+            # Guardar referencia del item
+            self.estado_item_seleccionado = item
+            
+            # Hacer foco en el combobox
+            self.estado_combobox.focus_set()
+            
+        except Exception as e:
+            print(f"Error en mostrar_estado_combobox: {str(e)}")
+
+    def ocultar_estado_combobox(self):
+        """Ocultar el combobox de estado"""
+        try:
+            if hasattr(self, 'estado_combobox') and self.estado_combobox:
+                self.estado_combobox.destroy()
+                self.estado_combobox = None
+                self.estado_item_seleccionado = None
+        except Exception as e:
+            print(f"Error en ocultar_estado_combobox: {str(e)}")
+
+    def cambiar_estado_producto(self, producto, nuevo_estado):
+        """Cambiar el estado de un producto usando el endpoint específico"""
+        try:
+            # Ocultar combobox
+            self.ocultar_estado_combobox()
+            
+            estado_actual_raw = producto.get('estado', '').lower()
+            if estado_actual_raw in ['activo', 'active', '1']:
+                estado_actual = "Activo"
+            else:
+                estado_actual = "Inactivo"
+            
+            # Si el estado no cambió, no hacer nada
+            if estado_actual == nuevo_estado:
+                return
+            
+            producto_nombre = producto.get('nombre', 'Producto')
+            producto_id = producto.get('id_producto')
+            
+            # Confirmar cambio de estado
+            resultado = messagebox.askyesno(
+                "Confirmar Cambio de Estado",
+                f"¿Desea cambiar el estado del producto '{producto_nombre}' de '{estado_actual}' a '{nuevo_estado}'?",
+                icon='question'
+            )
+            
+            if not resultado:
+                return
+            
+            # Realizar petición al backend usando el endpoint específico de estado
+            url = INVENTORY_MANAGEMENT_ENDPOINTS['products']['update_status'].format(id=producto_id)
+            token = SessionManager.get_token()
+            headers = {'Authorization': f'Bearer {token}'} if token else {}
+            
+            # Preparar datos según la documentación del backend
+            estado_backend = 'activo' if nuevo_estado == 'Activo' else 'inactivo'
+            data = {'estado': estado_backend}
+            
+            print(f"Cambiando estado del producto ID: {producto_id}")
+            print(f"URL: {url}")
+            print(f"Datos a enviar: {data}")
+            print(f"Estado backend: {estado_backend}")
+            
+            response = APIHandler.make_request('PATCH', url, headers=headers, data=data)
+            
+            print(f"Respuesta cambio de estado: {response}")
+            
+            if response['status_code'] == 200:
+                messagebox.showinfo("Éxito", f"Estado del producto '{producto_nombre}' cambiado a '{nuevo_estado}' exitosamente")
+                # Recargar productos para reflejar el cambio
+                self.cargar_productos()
+            else:
+                error_data = response.get('data', {})
+                error_msg = error_data.get('message', 'Error al cambiar estado del producto')
+                
+                # Si hay detalles de error, mostrarlos
+                if isinstance(error_data, dict) and 'errors' in error_data:
+                    error_details = []
+                    for field, messages in error_data['errors'].items():
+                        if isinstance(messages, list):
+                            error_details.extend([f"{field}: {msg}" for msg in messages])
+                        else:
+                            error_details.append(f"{field}: {messages}")
+                    error_msg += "\n\nDetalles:\n" + "\n".join(error_details)
+                
+                messagebox.showerror("Error", error_msg)
+                
+        except Exception as e:
+            print(f"Excepción en cambiar_estado_producto: {str(e)}")
+            messagebox.showerror("Error", f"Error al cambiar estado del producto: {str(e)}")
+    
+    def on_frame_click(self, event):
+        """Manejar clics fuera de la tabla para ocultar el combobox"""
+        try:
+            # Verificar si el clic fue fuera de la tabla
+            widget = event.widget
+            if widget != self.tabla and not isinstance(widget, ctk.CTkOptionMenu):
+                self.ocultar_estado_combobox()
+        except Exception as e:
+            print(f"Error en on_frame_click: {str(e)}")
 
 
 class ModalProducto(ctk.CTkToplevel):
@@ -510,7 +994,7 @@ class ModalProducto(ctk.CTkToplevel):
         
         # Configurar ventana
         self.title(titulo)
-        self.geometry("700x800")
+        self.geometry("800x900")  # Aumentado significativamente
         self.resizable(False, False)
         
         # Centrar ventana relativa al parent
@@ -518,6 +1002,7 @@ class ModalProducto(ctk.CTkToplevel):
         
         # Configurar grid
         self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)  # Hacer que el contenido se expanda
         
         # Cargar categorías
         self.categorias = parent.cargar_categorias_para_modal()
@@ -543,7 +1028,7 @@ class ModalProducto(ctk.CTkToplevel):
         
         # Scrollable frame para el contenido
         self.scroll_frame = ctk.CTkScrollableFrame(self, fg_color="#F8F9FA", corner_radius=10)
-        self.scroll_frame.grid(row=1, column=0, padx=30, pady=(0, 20), sticky="nsew")
+        self.scroll_frame.grid(row=1, column=0, padx=30, pady=(0, 10), sticky="nsew")
         self.scroll_frame.grid_columnconfigure(0, weight=1)
         
         # ID (solo en edición)
@@ -557,10 +1042,11 @@ class ModalProducto(ctk.CTkToplevel):
             
             self.id_entry = ctk.CTkEntry(
                 self.scroll_frame,
-                font=("Quicksand", 12),
-                state="disabled"
+                font=("Quicksand", 14),  # Aumentado el tamaño de fuente
+                state="disabled",
+                height=40  # Aumentado la altura
             )
-            self.id_entry.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 15))
+            self.id_entry.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 20))
         
         # Nombre
         ctk.CTkLabel(
@@ -572,10 +1058,11 @@ class ModalProducto(ctk.CTkToplevel):
         
         self.nombre_entry = ctk.CTkEntry(
             self.scroll_frame,
-            font=("Quicksand", 12),
-            placeholder_text="Ingrese el nombre del producto"
+            font=("Quicksand", 14),  # Aumentado el tamaño de fuente
+            placeholder_text="Ingrese el nombre del producto",
+            height=40  # Aumentado la altura
         )
-        self.nombre_entry.grid(row=3, column=0, sticky="ew", padx=20, pady=(0, 15))
+        self.nombre_entry.grid(row=3, column=0, sticky="ew", padx=20, pady=(0, 20))
         
         # Descripción
         ctk.CTkLabel(
@@ -587,14 +1074,14 @@ class ModalProducto(ctk.CTkToplevel):
         
         self.descripcion_text = ctk.CTkTextbox(
             self.scroll_frame,
-            height=100,
-            font=("Quicksand", 12)
+            height=120,  # Aumentado la altura
+            font=("Quicksand", 14)  # Aumentado el tamaño de fuente
         )
-        self.descripcion_text.grid(row=5, column=0, sticky="ew", padx=20, pady=(0, 15))
+        self.descripcion_text.grid(row=5, column=0, sticky="ew", padx=20, pady=(0, 20))
         
         # Frame para precio y peso (en la misma fila)
         precio_peso_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
-        precio_peso_frame.grid(row=6, column=0, sticky="ew", padx=20, pady=(0, 15))
+        precio_peso_frame.grid(row=6, column=0, sticky="ew", padx=20, pady=(0, 20))
         precio_peso_frame.grid_columnconfigure(0, weight=1)
         precio_peso_frame.grid_columnconfigure(1, weight=1)
         
@@ -608,8 +1095,9 @@ class ModalProducto(ctk.CTkToplevel):
         
         self.precio_entry = ctk.CTkEntry(
             precio_peso_frame,
-            font=("Quicksand", 12),
-            placeholder_text="0.00"
+            font=("Quicksand", 14),  # Aumentado el tamaño de fuente
+            placeholder_text="0.00",
+            height=40  # Aumentado la altura
         )
         self.precio_entry.grid(row=1, column=0, sticky="ew", padx=(0, 10))
         
@@ -623,14 +1111,15 @@ class ModalProducto(ctk.CTkToplevel):
         
         self.peso_entry = ctk.CTkEntry(
             precio_peso_frame,
-            font=("Quicksand", 12),
-            placeholder_text="ej: 500g, 1kg"
+            font=("Quicksand", 14),  # Aumentado el tamaño de fuente
+            placeholder_text="ej: 500g, 1kg",
+            height=40  # Aumentado la altura
         )
         self.peso_entry.grid(row=1, column=1, sticky="ew", padx=(10, 0))
         
         # Frame para categoría y stock
         cat_stock_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
-        cat_stock_frame.grid(row=7, column=0, sticky="ew", padx=20, pady=(0, 15))
+        cat_stock_frame.grid(row=7, column=0, sticky="ew", padx=20, pady=(0, 20))
         cat_stock_frame.grid_columnconfigure(0, weight=1)
         cat_stock_frame.grid_columnconfigure(1, weight=1)
         
@@ -649,9 +1138,10 @@ class ModalProducto(ctk.CTkToplevel):
         self.categoria_dropdown = ctk.CTkOptionMenu(
             cat_stock_frame,
             values=categoria_valores,
-            font=("Quicksand", 12),
+            font=("Quicksand", 14),  # Aumentado el tamaño de fuente
             fg_color="#4A934A",
-            button_color="#367832"
+            button_color="#367832",
+            height=40  # Aumentado la altura
         )
         self.categoria_dropdown.grid(row=1, column=0, sticky="ew", padx=(0, 10))
         
@@ -665,8 +1155,9 @@ class ModalProducto(ctk.CTkToplevel):
         
         self.stock_entry = ctk.CTkEntry(
             cat_stock_frame,
-            font=("Quicksand", 12),
-            placeholder_text="0"
+            font=("Quicksand", 14),  # Aumentado el tamaño de fuente
+            placeholder_text="0",
+            height=40  # Aumentado la altura
         )
         self.stock_entry.grid(row=1, column=1, sticky="ew", padx=(10, 0))
         
@@ -680,7 +1171,7 @@ class ModalProducto(ctk.CTkToplevel):
         
         # Frame para imagen
         imagen_frame = ctk.CTkFrame(self.scroll_frame, fg_color="#FFFFFF", corner_radius=10)
-        imagen_frame.grid(row=9, column=0, sticky="ew", padx=20, pady=(0, 15))
+        imagen_frame.grid(row=9, column=0, sticky="ew", padx=20, pady=(0, 30))  # Más espacio abajo
         imagen_frame.grid_columnconfigure(0, weight=1)
         
         # Botón para seleccionar imagen
@@ -688,26 +1179,26 @@ class ModalProducto(ctk.CTkToplevel):
             imagen_frame,
             text="📷 Seleccionar Imagen",
             command=self.seleccionar_imagen,
-            font=("Quicksand", 12, "bold"),
+            font=("Quicksand", 14, "bold"),  # Aumentado el tamaño de fuente
             fg_color="#4A934A",
             hover_color="#367832",
-            width=200,
-            height=35
+            width=250,  # Aumentado el ancho
+            height=45   # Aumentado la altura
         )
-        self.btn_seleccionar_imagen.grid(row=0, column=0, padx=20, pady=15)
+        self.btn_seleccionar_imagen.grid(row=0, column=0, padx=20, pady=20)
         
         # Label para preview de imagen
         self.imagen_label = ctk.CTkLabel(
             imagen_frame,
             text="No se ha seleccionado imagen",
-            font=("Quicksand", 10),
+            font=("Quicksand", 12),
             text_color="#666666"
         )
-        self.imagen_label.grid(row=1, column=0, padx=20, pady=(0, 15))
+        self.imagen_label.grid(row=1, column=0, padx=20, pady=(0, 20))  # Más espacio abajo
         
         # Frame de botones
         botones_frame = ctk.CTkFrame(self, fg_color="transparent")
-        botones_frame.grid(row=2, column=0, pady=20, sticky="ew")
+        botones_frame.grid(row=2, column=0, pady=(10, 30), sticky="ew")  # Más espacio abajo
         
         if self.es_edicion:
             # Botones para edición
@@ -715,47 +1206,47 @@ class ModalProducto(ctk.CTkToplevel):
                 botones_frame,
                 text="💾 Actualizar",
                 command=self.actualizar_producto,
-                font=("Quicksand", 12, "bold"),
+                font=("Quicksand", 14, "bold"),  # Aumentado el tamaño de fuente
                 fg_color="#2E6B5C",
                 hover_color="#24544A",
-                width=120,
-                height=35
-            ).pack(side="left", padx=10)
+                width=150,  # Aumentado el ancho
+                height=45   # Aumentado la altura
+            ).pack(side="left", padx=15)
             
             ctk.CTkButton(
                 botones_frame,
                 text="🗑️ Eliminar",
                 command=self.eliminar_producto,
-                font=("Quicksand", 12, "bold"),
+                font=("Quicksand", 14, "bold"),  # Aumentado el tamaño de fuente
                 fg_color="#DC3545",
                 hover_color="#B02A37",
-                width=120,
-                height=35
-            ).pack(side="left", padx=10)
+                width=150,  # Aumentado el ancho
+                height=45   # Aumentado la altura
+            ).pack(side="left", padx=15)
         else:
             # Botón para crear
             ctk.CTkButton(
                 botones_frame,
                 text="💾 Crear Producto",
                 command=self.guardar_producto,
-                font=("Quicksand", 12, "bold"),
+                font=("Quicksand", 14, "bold"),  # Aumentado el tamaño de fuente
                 fg_color="#2E6B5C",
                 hover_color="#24544A",
-                width=150,
-                height=35
-            ).pack(side="left", padx=10)
+                width=180,  # Aumentado el ancho
+                height=45   # Aumentado la altura
+            ).pack(side="left", padx=15)
         
         # Botón cancelar
         ctk.CTkButton(
             botones_frame,
             text="❌ Cancelar",
             command=self.cerrar_modal,
-            font=("Quicksand", 12, "bold"),
+            font=("Quicksand", 14, "bold"),  # Aumentado el tamaño de fuente
             fg_color="#6C757D",
             hover_color="#5A6268",
-            width=120,
-            height=35
-        ).pack(side="right", padx=10)
+            width=150,  # Aumentado el ancho
+            height=45   # Aumentado la altura
+        ).pack(side="right", padx=15)
     
     def seleccionar_imagen(self):
         """Seleccionar archivo de imagen"""
@@ -775,10 +1266,16 @@ class ModalProducto(ctk.CTkToplevel):
             if archivo:
                 self.imagen_path = archivo
                 nombre_archivo = os.path.basename(archivo)
-                self.imagen_label.configure(text=f"Imagen seleccionada: {nombre_archivo}")
-                self.btn_seleccionar_imagen.configure(text="📷 Cambiar Imagen")
                 
-                # Mostrar preview si es posible
+                # Mostrar mensaje indicando que se seleccionó una nueva imagen
+                if self.es_edicion:
+                    self.imagen_label.configure(text=f"Nueva imagen: {nombre_archivo}")
+                    self.btn_seleccionar_imagen.configure(text="📷 Cambiar Imagen")
+                else:
+                    self.imagen_label.configure(text=f"Imagen seleccionada: {nombre_archivo}")
+                    self.btn_seleccionar_imagen.configure(text="📷 Cambiar Imagen")
+                
+                # Mostrar preview de la nueva imagen
                 self.mostrar_preview_imagen(archivo)
                 
         except Exception as e:
@@ -834,6 +1331,9 @@ class ModalProducto(ctk.CTkToplevel):
             nombre_categoria = categoria_producto.get('nombre', '')
             if nombre_categoria:
                 self.categoria_dropdown.set(nombre_categoria)
+        
+        # Cargar imagen actual si existe
+        self.cargar_imagen_actual()
     
     def validar_campos(self):
         """Validar que todos los campos requeridos estén llenos"""
@@ -926,11 +1426,11 @@ class ModalProducto(ctk.CTkToplevel):
                 'stock': self.stock_entry.get().strip() or '0'
             }
             
-            # Agregar imagen si existe
+            # Agregar imagen si existe una nueva seleccionada
             if self.imagen_path:
                 datos_producto['imagen_path'] = self.imagen_path
             
-            # Llamar callback
+            # Llamar callback con el ID del producto
             if self.callback_guardar:
                 producto_id = self.producto.get('id_producto')
                 if self.callback_guardar(producto_id, datos_producto):
@@ -976,7 +1476,52 @@ class ModalProducto(ctk.CTkToplevel):
             self.geometry(f"{width}x{height}+{x}+{y}")
         except Exception as e:
             print(f"Error al centrar ventana: {str(e)}")
-
+    
+    def cargar_imagen_actual(self):
+        """Cargar imagen actual del producto para mostrar en el modal de edición"""
+        try:
+            if not self.es_edicion or not self.producto:
+                return
+                
+            url_imagen = self.producto.get('url_imagen_completa') or self.producto.get('url_imagen')
+            
+            if url_imagen and url_imagen != 'productos/default.jpg':
+                # Intentar cargar imagen desde URL
+                try:
+                    response = requests.get(url_imagen, timeout=10)
+                    if response.status_code == 200:
+                        from io import BytesIO
+                        imagen_data = BytesIO(response.content)
+                        imagen = Image.open(imagen_data)
+                        
+                        # Redimensionar imagen para preview
+                        imagen.thumbnail((150, 150), Image.Resampling.LANCZOS)
+                        
+                        # Convertir a PhotoImage
+                        self.imagen_preview = ImageTk.PhotoImage(imagen)
+                        
+                        # Actualizar label con la imagen
+                        self.imagen_label.configure(
+                            image=self.imagen_preview, 
+                            text=""
+                        )
+                        
+                        # Cambiar texto del botón
+                        self.btn_seleccionar_imagen.configure(text="📷 Cambiar Imagen")
+                        
+                    else:
+                        self.imagen_label.configure(text="No se pudo cargar la imagen actual")
+                        
+                except Exception as e:
+                    print(f"Error al cargar imagen actual: {str(e)}")
+                    self.imagen_label.configure(text="Error al cargar imagen actual")
+            else:
+                self.imagen_label.configure(text="Sin imagen actual")
+                
+        except Exception as e:
+            print(f"Error en cargar_imagen_actual: {str(e)}")
+            self.imagen_label.configure(text="Error al cargar imagen")
+        
 
 class ModalDetalleProducto(ctk.CTkToplevel):
     """Modal para mostrar detalles completos de un producto"""
