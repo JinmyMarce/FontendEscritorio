@@ -39,7 +39,7 @@ INVENTORY_MANAGEMENT_ENDPOINTS = {
     
     # Endpoints de Productos
     'products': {
-        'list': f"{API_BASE_URL}/admin/products",  # GET - Listar todos los productos relacionados a una categoria en específico
+        'list': f"{API_BASE_URL}/admin/products",  # GET - Listar todos los productos relacionados a sus categorias
         'create': f"{API_BASE_URL}/admin/products",  # POST - Crear nuevo producto
         'detail': f"{API_BASE_URL}/admin/products/{{id}}",  # GET - Obtener detalles de producto
         'update': f"{API_BASE_URL}/admin/products/{{id}}",  # PUT - Actualizar producto completo
@@ -55,8 +55,13 @@ INVENTORY_MANAGEMENT_ENDPOINTS = {
         'products_list': f"{API_BASE_URL}/admin/inventory/products",  # GET - Lista de productos en inventario
         'product_detail': f"{API_BASE_URL}/admin/inventory/products/{{id}}",  # GET - Detalle de producto en inventario
         'update_status': f"{API_BASE_URL}/admin/inventory/products/{{id}}/status",  # PATCH - Actualizar estado en inventario
-        'update_stock': f"{API_BASE_URL}/admin/inventory/products/{{id}}/stock",  # PATCH - Actualizar stock
-        'statistics': f"{API_BASE_URL}/admin/inventory/statistics"  # GET - Estadísticas de inventario
+        'statistics': f"{API_BASE_URL}/admin/inventory/statistics",  # GET - Estadísticas de inventario
+        
+        # Endpoints de gestión de stock (flexibles)
+        'update_stock': f"{API_BASE_URL}/admin/inventory/products/{{id}}/stock",  # PATCH - Actualizar stock (genérico con 'accion')
+        'increase_stock': f"{API_BASE_URL}/admin/inventory/products/{{id}}/stock/increase",  # PATCH - Aumentar stock específicamente
+        'decrease_stock': f"{API_BASE_URL}/admin/inventory/products/{{id}}/stock/decrease",  # PATCH - Reducir stock específicamente
+        'set_stock': f"{API_BASE_URL}/admin/inventory/products/{{id}}/stock/set"  # PATCH - Establecer stock específicamente
     }
 }
 
@@ -207,5 +212,38 @@ MESSAGES = {
         'no_data': 'No hay datos para mostrar',
         'confirm_delete': '¿Está seguro de que desea eliminar este registro?',
         'confirm_logout': '¿Está seguro de que desea cerrar sesión?'
+    }
+}
+
+# Configuración de payloads para operaciones de stock
+STOCK_OPERATIONS_CONFIG = {
+    'update_stock': {
+        'endpoint_key': 'update_stock',
+        'payload': {
+            'cantidad_disponible': 0,  # Requerido
+            'accion': 'establecer'  # Opcional: 'aumentar', 'reducir', 'establecer'
+        },
+        'description': 'Actualización genérica de stock con diferentes acciones'
+    },
+    'increase_stock': {
+        'endpoint_key': 'increase_stock',
+        'payload': {
+            'cantidad_disponible': 0  # Cantidad a aumentar
+        },
+        'description': 'Aumentar stock específicamente'
+    },
+    'decrease_stock': {
+        'endpoint_key': 'decrease_stock',
+        'payload': {
+            'cantidad_disponible': 0  # Cantidad a reducir
+        },
+        'description': 'Reducir stock específicamente'
+    },
+    'set_stock': {
+        'endpoint_key': 'set_stock',
+        'payload': {
+            'cantidad_disponible': 0  # Nueva cantidad total
+        },
+        'description': 'Establecer stock a una cantidad específica'
     }
 }
