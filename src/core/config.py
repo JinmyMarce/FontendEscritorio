@@ -40,6 +40,7 @@ INVENTORY_MANAGEMENT_ENDPOINTS = {
     # Endpoints de Productos
     'products': {
         'list': f"{API_BASE_URL}/admin/products",  # GET - Listar todos los productos relacionados a sus categorias
+        'by_category': f"{API_BASE_URL}/admin/products?category_id={{category_id}}",  # GET - Productos por categoría
         'create': f"{API_BASE_URL}/admin/products",  # POST - Crear nuevo producto
         'detail': f"{API_BASE_URL}/admin/products/{{id}}",  # GET - Obtener detalles de producto
         'update': f"{API_BASE_URL}/admin/products/{{id}}",  # PUT - Actualizar producto completo
