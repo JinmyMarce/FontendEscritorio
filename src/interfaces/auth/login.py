@@ -3,6 +3,8 @@ from PIL import Image, ImageTk
 import os
 import tkinter.messagebox as messagebox
 from customtkinter import CTkImage
+import json
+import base64
 
 class LoginApp(ctk.CTkFrame):
     def __init__(self, parent, on_login_success=None):
@@ -73,6 +75,54 @@ class LoginApp(ctk.CTkFrame):
                 show="*", 
                 font=("Quicksand", 12))
             self.password_entry.pack(pady=6)
+            
+            # Checkbox para recordar credenciales
+            self.remember_var = ctk.BooleanVar()
+            self.remember_checkbox = ctk.CTkCheckBox(
+                self.main_frame,
+                text="Recordar credenciales",
+                variable=self.remember_var,
+                font=("Quicksand", 12),
+                text_color="#2E6B5C",
+                fg_color="#2E6B5C",
+                hover_color="#1D4A3C",
+                border_color="#2E6B5C"
+            )
+            self.remember_checkbox.pack(pady=(10, 5))
+            
+            # Cargar credenciales guardadas si existen
+            self.load_saved_credentials()
+            
+            # Frame para botones adicionales
+            button_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+            button_frame.pack(pady=(5, 10))
+            
+            # Botón para limpiar credenciales guardadas
+            self.clear_credentials_button = ctk.CTkButton(
+                button_frame,
+                text="Limpiar guardadas",
+                width=120, height=28,
+                corner_radius=15,
+                fg_color="#6B6B6B",
+                hover_color="#5A5A5A",
+                font=("Quicksand", 10),
+                command=self.clear_credentials_action
+            )
+            self.clear_credentials_button.pack(side="left", padx=5)
+            
+            # Botón para verificar credenciales guardadas
+            self.check_credentials_button = ctk.CTkButton(
+                button_frame,
+                text="Ver guardadas",
+                width=120, height=28,
+                corner_radius=15,
+                fg_color="#4A934A",
+                hover_color="#367832",
+                font=("Quicksand", 10),
+                command=self.show_saved_credentials_info
+            )
+            self.check_credentials_button.pack(side="left", padx=5)
+            
             # Botón de login
             self.login_button = ctk.CTkButton(
                 self.main_frame, 
@@ -131,6 +181,15 @@ class LoginApp(ctk.CTkFrame):
                         messagebox.showerror("Acceso denegado", "Acceso denegado: solo administradores pueden ingresar.")
                         print("Acceso denegado: solo administradores pueden ingresar.")
                         return
+                    
+                    # Manejar el guardado de credenciales
+                    if self.remember_var.get():
+                        # Guardar credenciales si está marcado
+                        self.save_credentials(email, password)
+                    else:
+                        # Eliminar credenciales guardadas si está desmarcado
+                        self.clear_saved_credentials()
+                    
                     from src.shared.utils import SessionManager
                     SessionManager.set_session(token, user)
                     if self.on_login_success:
@@ -283,3 +342,167 @@ class LoginApp(ctk.CTkFrame):
             self.cleanup_widgets()
         except Exception:
             pass  # Ignorar errores en el destructor
+    
+    def get_credentials_file_path(self):
+        """Obtener la ruta del archivo de credenciales"""
+        try:
+            # Crear directorio de datos si no existe
+            app_data_dir = os.path.join(os.path.expanduser("~"), ".fresaterra_admin")
+            os.makedirs(app_data_dir, exist_ok=True)
+            return os.path.join(app_data_dir, "credentials.dat")
+        except Exception:
+            # Fallback a directorio local
+            return os.path.join(os.path.dirname(__file__), "credentials.dat")
+    
+    def simple_encrypt(self, text):
+        """Cifrado simple usando base64 (no es seguro para producción)"""
+        try:
+            # Agregar un salt simple
+            salt = "fresaterra_admin_2024"
+            combined = f"{salt}:{text}:{salt}"
+            encoded = base64.b64encode(combined.encode('utf-8')).decode('utf-8')
+            return encoded
+        except Exception:
+            return None
+    
+    def simple_decrypt(self, encoded_text):
+        """Descifrado simple usando base64"""
+        try:
+            decoded = base64.b64decode(encoded_text.encode('utf-8')).decode('utf-8')
+            salt = "fresaterra_admin_2024"
+            if decoded.startswith(f"{salt}:") and decoded.endswith(f":{salt}"):
+                # Extraer el texto original
+                return decoded[len(salt)+1:-len(salt)-1]
+            return None
+        except Exception:
+            return None
+    
+    def save_credentials(self, email, password):
+        """Guardar credenciales de forma cifrada"""
+        try:
+            credentials_file = self.get_credentials_file_path()
+            
+            # Cifrar credenciales
+            encrypted_email = self.simple_encrypt(email)
+            encrypted_password = self.simple_encrypt(password)
+            
+            if encrypted_email and encrypted_password:
+                credentials_data = {
+                    "email": encrypted_email,
+                    "password": encrypted_password,
+                    "remember": True
+                }
+                
+                with open(credentials_file, 'w', encoding='utf-8') as f:
+                    json.dump(credentials_data, f)
+                
+                print("Credenciales guardadas exitosamente")
+            
+        except Exception as e:
+            print(f"Error al guardar credenciales: {str(e)}")
+    
+    def load_saved_credentials(self):
+        """Cargar credenciales guardadas"""
+        try:
+            credentials_file = self.get_credentials_file_path()
+            
+            if not os.path.exists(credentials_file):
+                return
+            
+            with open(credentials_file, 'r', encoding='utf-8') as f:
+                credentials_data = json.load(f)
+            
+            if credentials_data.get("remember", False):
+                # Descifrar credenciales
+                email = self.simple_decrypt(credentials_data.get("email", ""))
+                password = self.simple_decrypt(credentials_data.get("password", ""))
+                
+                if email and password:
+                    # Llenar los campos
+                    self.email_entry.delete(0, 'end')
+                    self.email_entry.insert(0, email)
+                    self.password_entry.delete(0, 'end')
+                    self.password_entry.insert(0, password)
+                    
+                    # Marcar el checkbox
+                    self.remember_var.set(True)
+                    
+                    print("Credenciales cargadas exitosamente")
+        
+        except Exception as e:
+            print(f"Error al cargar credenciales: {str(e)}")
+    
+    def clear_saved_credentials(self):
+        """Eliminar credenciales guardadas"""
+        try:
+            credentials_file = self.get_credentials_file_path()
+            if os.path.exists(credentials_file):
+                os.remove(credentials_file)
+                print("Credenciales eliminadas")
+        except Exception as e:
+            print(f"Error al eliminar credenciales: {str(e)}")
+    
+    def clear_credentials_action(self):
+        """Acción para limpiar credenciales guardadas"""
+        try:
+            result = messagebox.askyesno(
+                "Confirmar", 
+                "¿Está seguro de que desea eliminar las credenciales guardadas?",
+                icon='question'
+            )
+            if result:
+                self.clear_saved_credentials()
+                # Limpiar campos actuales
+                self.email_entry.delete(0, 'end')
+                self.password_entry.delete(0, 'end')
+                self.remember_var.set(False)
+                messagebox.showinfo("Éxito", "Credenciales eliminadas correctamente")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al eliminar credenciales: {str(e)}")
+    
+    def show_saved_credentials_info(self):
+        """Mostrar información sobre las credenciales guardadas"""
+        try:
+            credentials_file = self.get_credentials_file_path()
+            
+            if not os.path.exists(credentials_file):
+                messagebox.showinfo("Información", "No hay credenciales guardadas")
+                return
+            
+            with open(credentials_file, 'r', encoding='utf-8') as f:
+                credentials_data = json.load(f)
+            
+            if credentials_data.get("remember", False):
+                email = self.simple_decrypt(credentials_data.get("email", ""))
+                if email:
+                    # Mostrar solo parte del email por seguridad
+                    if '@' in email:
+                        username, domain = email.split('@', 1)
+                        masked_email = f"{username[:2]}{'*' * (len(username) - 2)}@{domain}"
+                    else:
+                        masked_email = f"{email[:2]}{'*' * (len(email) - 2)}"
+                    
+                    messagebox.showinfo(
+                        "Credenciales Guardadas", 
+                        f"Usuario guardado: {masked_email}\n\n" +
+                        "Las credenciales se cargarán automáticamente al iniciar la aplicación."
+                    )
+                else:
+                    messagebox.showwarning("Advertencia", "Las credenciales guardadas están corruptas")
+            else:
+                messagebox.showinfo("Información", "No hay credenciales guardadas")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al verificar credenciales: {str(e)}")
+    
+    def toggle_password_visibility(self):
+        """Alternar visibilidad de la contraseña"""
+        try:
+            if self.password_entry.cget("show") == "*":
+                self.password_entry.configure(show="")
+                self.toggle_password_button.configure(text="🙈")
+            else:
+                self.password_entry.configure(show="*")
+                self.toggle_password_button.configure(text="👁️")
+        except Exception as e:
+            print(f"Error al alternar visibilidad: {str(e)}")
