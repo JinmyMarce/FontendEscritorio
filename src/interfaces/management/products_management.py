@@ -159,6 +159,10 @@ class ProductsSection(ctk.CTkFrame):
         columns = ("id", "nombre", "descripcion", "categoria", "precio", "estado", "peso")
         self.tabla = ttk.Treeview(self.tabla_container, columns=columns, show='headings', style="Productos.Treeview")
         
+        # Tags para colorear estados
+        self.tabla.tag_configure('activo', foreground='#28a745')
+        self.tabla.tag_configure('inactivo', foreground='#dc3545')
+        
         # Configurar encabezados y columnas con anchos optimizados
         self.tabla.heading("id", text="ID")
         self.tabla.heading("nombre", text="Nombre")
@@ -196,6 +200,8 @@ class ProductsSection(ctk.CTkFrame):
         self.tabla.bind('<<TreeviewSelect>>', self.on_select)
         self.tabla.bind('<Double-1>', self.on_double_click)
         self.tabla.bind('<Button-1>', self.on_tabla_click)
+        self.tabla.bind('<Motion>', self.on_tabla_motion)
+        self.tabla.bind('<Motion>', self.on_tabla_motion)
             
     def cargar_productos(self):
         """Cargar productos desde la API"""
@@ -306,14 +312,17 @@ class ProductsSection(ctk.CTkFrame):
                 precio = producto.get("precio", "0")
                 peso = producto.get("peso", "N/A")
                 
-                # Normalizar estado para mostrar
+                # Normalizar estado para mostrar con indicador clicable
                 estado_raw = producto.get("estado", "").lower()
                 if estado_raw in ['activo', 'active', '1', 1]:
-                    estado_display = "🟢 Activo"
+                    estado_display = "● Activo"  # Usar punto simple en lugar de emoji
+                    tag_estado = 'activo'
                 elif estado_raw in ['inactivo', 'inactive', '0', 0]:
-                    estado_display = "🔴 Inactivo"
+                    estado_display = "● Inactivo"
+                    tag_estado = 'inactivo'
                 else:
-                    estado_display = "❓ Desconocido"
+                    estado_display = "● Desconocido"
+                    tag_estado = ''
                 
                 # Obtener categoría (puede ser objeto o string)
                 categoria_info = producto.get("categoria", {})
@@ -328,8 +337,8 @@ class ProductsSection(ctk.CTkFrame):
                 except:
                     precio_formateado = f"S/ {precio}"
                 
-                # Insertar en tabla
-                self.tabla.insert("", "end", values=(
+                # Insertar en tabla con tags de color
+                item_id = self.tabla.insert("", "end", values=(
                     id_producto,
                     nombre,
                     descripcion,
@@ -337,7 +346,7 @@ class ProductsSection(ctk.CTkFrame):
                     precio_formateado,
                     estado_display,
                     peso
-                ))
+                ), tags=(tag_estado,) if tag_estado else ())
                 
         except Exception as e:
             print(f"Error en actualizar_tabla: {str(e)}")  # Para debugging
@@ -782,16 +791,10 @@ class ProductsSection(ctk.CTkFrame):
             print(f"Error en on_select: {str(e)}")
 
     def on_double_click(self, event):
-        """Manejar doble clic en la tabla"""
+        """Manejar doble clic en la tabla - solo abrir modal de detalles"""
         try:
             if self.producto_seleccionado:
-                # Abrir modal de detalles del producto
-                ModalDetalleProducto(self, self.producto_seleccionado)
-        except Exception as e:
-            print(f"Error en on_double_click: {str(e)}")
-        try:
-            if self.producto_seleccionado:
-                # Abrir modal de detalles del producto
+                # Solo abrir modal de detalles del producto una vez
                 ModalDetalleProducto(self, self.producto_seleccionado)
         except Exception as e:
             print(f"Error en on_double_click: {str(e)}")
@@ -813,27 +816,40 @@ class ProductsSection(ctk.CTkFrame):
             # Identificar qué elemento fue clickeado
             item = self.tabla.identify_row(event.y)
             column = self.tabla.identify_column(event.x)
-            
             # Ocultar combobox anterior si existe
             self.ocultar_estado_combobox()
-            
             # Solo mostrar combobox si se hizo clic en la columna de estado
             if item and column == '#6':  # Columna de estado es la #6
                 self.mostrar_estado_combobox(item, event)
-                
         except Exception as e:
             print(f"Error en on_tabla_click: {str(e)}")
+
+    def on_tabla_motion(self, event):
+        """Cambiar cursor cuando esté sobre la columna de estado"""
+        try:
+            column = self.tabla.identify_column(event.x)
+            if column == '#6':  # Columna de estado
+                self.tabla.configure(cursor="hand2")
+            else:
+                self.tabla.configure(cursor="")
+        except Exception as e:
+            print(f"Error en on_tabla_motion: {str(e)}")
 
     def mostrar_estado_combobox(self, item, event):
         """Mostrar combobox para cambiar el estado del producto"""
         try:
+            print(f"Iniciando mostrar_estado_combobox para item: {item}")  # Debug
+            
             # Obtener información del item
             valores = self.tabla.item(item, 'values')
             if not valores:
+                print("No se encontraron valores para el item")  # Debug
                 return
                 
             producto_id = valores[0]
             estado_actual = valores[5]  # Columna de estado
+            
+            print(f"Producto ID: {producto_id}, Estado actual: {estado_actual}")  # Debug
             
             # Buscar el producto completo
             producto_completo = None
@@ -843,14 +859,17 @@ class ProductsSection(ctk.CTkFrame):
                     break
                     
             if not producto_completo:
+                print("No se encontró el producto completo")  # Debug
                 return
             
             # Obtener posición y tamaño de la celda
             bbox = self.tabla.bbox(item, '#6')
             if not bbox:
+                print("No se pudo obtener bbox de la celda")  # Debug
                 return
                 
             x, y, width, height = bbox
+            print(f"Posición del combobox - X: {x}, Y: {y}, Width: {width}, Height: {height}")  # Debug
             
             # Determinar estado actual normalizado (remover emojis)
             if "Activo" in estado_actual:
@@ -860,37 +879,39 @@ class ProductsSection(ctk.CTkFrame):
             else:
                 estado_normalizado = "Activo"  # Por defecto
             
+            print(f"Estado normalizado: {estado_normalizado}")  # Debug
+            
             # Crear combobox
             self.estado_combobox = ctk.CTkOptionMenu(
                 self.tabla_container,
                 values=["Activo", "Inactivo"],
                 command=lambda valor: self.cambiar_estado_producto(producto_completo, valor),
                 font=("Quicksand", 10),
-                width=width-5,
-                height=height-2,
+                width=max(width-5, 80),  # Asegurar un ancho mínimo
+                height=max(height-2, 25),  # Asegurar una altura mínima
                 fg_color="#4A934A",
                 button_color="#367832"
             )
-            
             # Establecer valor actual
             self.estado_combobox.set(estado_normalizado)
-            
             # Posicionar combobox sobre la celda
             self.estado_combobox.place(x=x+2, y=y+1)
-            
             # Guardar referencia del item
             self.estado_item_seleccionado = item
-            
-            # Hacer foco en el combobox
+            # Hacer foco en el combobox y cerrar al perder foco
             self.estado_combobox.focus_set()
+            self.estado_combobox.bind('<FocusOut>', lambda e: self.ocultar_estado_combobox())
             
         except Exception as e:
             print(f"Error en mostrar_estado_combobox: {str(e)}")
+            import traceback
+            traceback.print_exc()  # Para debug completo
 
     def ocultar_estado_combobox(self):
         """Ocultar el combobox de estado"""
         try:
             if hasattr(self, 'estado_combobox') and self.estado_combobox:
+                self.estado_combobox.unbind('<FocusOut>')
                 self.estado_combobox.destroy()
                 self.estado_combobox = None
                 self.estado_item_seleccionado = None
