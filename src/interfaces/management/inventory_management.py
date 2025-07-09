@@ -8,6 +8,7 @@ from src.core.config import INVENTORY_MANAGEMENT_ENDPOINTS, UI_CONFIG
 from src.shared.utils import APIHandler, UIHelper, SessionManager, DataValidator, DateTimeHelper
 from src.interfaces.management.products_management import ProductsSection
 from src.interfaces.management.categories_management import GestionCategoriasFrame
+from src.interfaces.management.stock_management import StockManagementSection
 from PIL import Image, ImageTk
 from src.shared.image_handler import ImageHandler
 
@@ -191,210 +192,15 @@ class GestionInventario(ctk.CTkFrame):
             messagebox.showerror("Error", f"Error al crear sección de categorías: {str(e)}")
             
     def crear_seccion_stock(self):
-        """Crear la sección de control de stock"""
+        """Crear la sección de control de stock usando el componente modular"""
         try:
-            # Frame principal de stock
-            stock_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-            stock_frame.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
-            stock_frame.grid_columnconfigure(0, weight=1)
-            stock_frame.grid_rowconfigure(1, weight=1)
-            
-            # Frame de información de stock
-            info_frame = ctk.CTkFrame(stock_frame, fg_color="#FFFFFF", corner_radius=10)
-            info_frame.grid(row=0, column=0, sticky="ew", padx=0, pady=(0, 20))
-            
-            ctk.CTkLabel(
-                info_frame,
-                text="📊 Control de Stock e Inventario",
-                font=("Quicksand", 18, "bold"),
-                text_color="#2E6B5C"
-            ).pack(pady=20)
-            
-            # Botones de acciones de stock
-            stock_buttons_frame = ctk.CTkFrame(info_frame, fg_color="transparent")
-            stock_buttons_frame.pack(pady=(0, 20))
-            
-            ctk.CTkButton(
-                stock_buttons_frame,
-                text="📈 Actualizar Stock",
-                command=self.gestionar_stock_general,
-                fg_color="#4CAF50",
-                hover_color="#45a049",
-                width=150
-            ).pack(side="left", padx=5)
-            
-            # Tabla de inventario
-            self.crear_tabla_stock(stock_frame)
-            self.cargar_inventario()
+            # Crear y configurar la sección de stock modular
+            self.stock_section = StockManagementSection(self.content_frame)
+            self.stock_section.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
             
         except Exception as e:
             messagebox.showerror("Error", f"Error al crear sección de stock: {str(e)}")
-            
-    def crear_tabla_stock(self, parent):
-        """Crear tabla para control de stock"""
-        try:
-            # Frame para la tabla
-            table_frame = ctk.CTkFrame(parent, fg_color="#FFFFFF", corner_radius=10)
-            table_frame.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
-            
-            # Configurar estilo
-            style = ttk.Style()
-            style.configure(
-                "Stock.Treeview",
-                background="#FFFFFF",
-                foreground="#367832",
-                rowheight=30,
-                fieldbackground="#FFFFFF"
-            )
-            style.configure(
-                "Stock.Treeview.Heading",
-                background="#367832",
-                foreground="white",
-                font=("Quicksand", 12, "bold")
-            )
-            
-            # Crear Treeview
-            columns = ("id", "producto", "stock_actual", "estado")
-            self.tabla_stock = ttk.Treeview(
-                table_frame, 
-                columns=columns, 
-                show="headings",
-                style="Stock.Treeview"
-            )
-            
-            # Configurar columnas
-            self.tabla_stock.heading("id", text="ID")
-            self.tabla_stock.heading("producto", text="Producto")
-            self.tabla_stock.heading("stock_actual", text="Stock Actual")
-            self.tabla_stock.heading("estado", text="Estado")
-            
-            # Configurar anchos
-            self.tabla_stock.column("id", width=50)
-            self.tabla_stock.column("producto", width=200)
-            self.tabla_stock.column("stock_actual", width=100)
-            self.tabla_stock.column("estado", width=100)
-            
-            # Scrollbars
-            v_scrollbar_stock = ttk.Scrollbar(table_frame, orient="vertical", command=self.tabla_stock.yview)
-            self.tabla_stock.configure(yscrollcommand=v_scrollbar_stock.set)
-            
-            # Empaquetar
-            self.tabla_stock.pack(side="left", fill="both", expand=True, padx=20, pady=20)
-            v_scrollbar_stock.pack(side="right", fill="y")
-            
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al crear tabla de stock: {str(e)}")
-            
-    # =================================================================================
-    # MÉTODOS DE CARGA DE DATOS
-    # =================================================================================
-    
-    def cargar_inventario(self):
-        """Cargar inventario desde la API"""
-        try:
-            url = INVENTORY_MANAGEMENT_ENDPOINTS['inventory']['products_list']
-            token = SessionManager.get_token()
-            headers = {'Authorization': f'Bearer {token}'} if token else {}
-            
-            response = APIHandler.make_request('GET', url, headers=headers)
-            if response['status_code'] == 200:
-                # Adaptar estructura de datos de la API
-                api_data = response['data']
-                if isinstance(api_data, dict) and 'data' in api_data:
-                    self.inventario = api_data['data']  # Extraer el array de inventario
-                else:
-                    self.inventario = api_data if isinstance(api_data, list) else []
-                    
-                self.actualizar_tabla_stock()
-            else:
-                messagebox.showerror("Error", f"Error al cargar inventario: {response.get('data', 'Error desconocido')}")
-                self.cargar_inventario_ejemplo()
-                
-        except Exception as e:
-            print(f"Error al cargar inventario: {str(e)}")  # Para debugging
-            messagebox.showerror("Error", f"Error al cargar inventario: {str(e)}")
-            self.cargar_inventario_ejemplo()
-            
-    def cargar_inventario_ejemplo(self):
-        """Cargar datos de ejemplo para inventario"""
-        self.inventario = [
-            {
-                "id_producto": 1,
-                "nombre_producto": "Delicia Andina - 1kg",
-                "precio": "13.00",
-                "categoria": "Paquetes de Fresas",
-                "inventario": {
-                    "cantidad_disponible": 0,
-                    "estado_inventario": "sin_inventario"
-                }
-            }
-        ]
-        self.actualizar_tabla_stock()
-            
-    # =================================================================================
-    # MÉTODOS DE ACTUALIZACIÓN DE TABLAS
-    # =================================================================================
-    
-    def actualizar_tabla_stock(self):
-        """Actualizar tabla de stock"""
-        try:
-            if hasattr(self, 'tabla_stock'):
-                # Limpiar tabla
-                for item in self.tabla_stock.get_children():
-                    self.tabla_stock.delete(item)
-                    
-                # Mostrar inventario
-                for item in self.inventario:
-                    # Verificar que item sea un diccionario
-                    if not isinstance(item, dict):
-                        continue
-                        
-                    # Obtener datos según la estructura de la API
-                    id_producto = item.get("id_producto", "")
-                    nombre_producto = item.get("nombre_producto", "")
-                    
-                    # Obtener información del inventario
-                    inventario_info = item.get("inventario", {})
-                    if isinstance(inventario_info, dict):
-                        cantidad_disponible = inventario_info.get("cantidad_disponible", 0)
-                        estado_inventario = inventario_info.get("estado_inventario", "sin_inventario")
-                    else:
-                        cantidad_disponible = 0
-                        estado_inventario = "sin_inventario"
-                    
-                    # Determinar estado para mostrar
-                    if estado_inventario == "sin_inventario":
-                        estado_display = "Sin Inventario"
-                    elif cantidad_disponible == 0:
-                        estado_display = "Sin Stock"
-                    elif cantidad_disponible <= 10:  # Umbral de stock bajo
-                        estado_display = "Stock Bajo"
-                    else:
-                        estado_display = "Normal"
-                    
-                    # Insertar en tabla
-                    self.tabla_stock.insert("", "end", values=(
-                        id_producto,
-                        nombre_producto,
-                        cantidad_disponible,
-                        estado_display
-                    ))
-                    
-        except Exception as e:
-            print(f"Error en actualizar_tabla_stock: {str(e)}")  # Para debugging
-            messagebox.showerror("Error", f"Error al actualizar tabla de stock: {str(e)}")
-            
-    # =================================================================================
-    # MÉTODOS DE ACCIONES
-    # =================================================================================
-    
-    def gestionar_stock_general(self):
-        """Gestión general de stock"""
-        try:
-            # TODO: Implementar gestión de stock
-            messagebox.showinfo("Info", "Funcionalidad de gestión de stock en desarrollo")
-        except Exception as e:
-            messagebox.showerror("Error", f"Error en gestión de stock: {str(e)}")
+
 
 if __name__ == "__main__":
     app = ctk.CTk()
