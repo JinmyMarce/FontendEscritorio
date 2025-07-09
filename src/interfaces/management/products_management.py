@@ -444,7 +444,7 @@ class ProductsSection(ctk.CTkFrame):
                 'precio': str(datos_producto['precio']),
                 'peso': str(datos_producto['peso']),
                 'categorias_id_categoria': str(datos_producto['categoria_id']),
-                'estado': '1'  # Por defecto activo
+                'estado': 'activo'  # Por defecto activo
             }
             
             # Si hay stock, agregarlo
