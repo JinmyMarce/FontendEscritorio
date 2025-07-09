@@ -1,9 +1,34 @@
 import customtkinter as ctk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 from PIL import Image, ImageTk
 from src.core.config import INVENTORY_ENDPOINTS
 from src.shared.utils import APIHandler
 import os
+
+# --- Ventana emergente personalizada ---
+def mostrar_alerta(titulo, mensaje, tipo="info"):
+    colores = {
+        "info": {"bg": "#E0F7FA", "fg": "#00796B", "icon": "ℹ️"},
+        "error": {"bg": "#FFEBEE", "fg": "#C62828", "icon": "❌"},
+        "success": {"bg": "#E8F5E9", "fg": "#2E7D32", "icon": "✔️"},
+        "warning": {"bg": "#FFF8E1", "fg": "#FF8F00", "icon": "⚠️"}
+    }
+    c = colores.get(tipo, colores["info"])
+    win = ctk.CTkToplevel()
+    win.title(titulo)
+    win.geometry("360x160")
+    win.resizable(False, False)
+    win.configure(fg_color=c["bg"])
+    win.grab_set()
+    # Icono y mensaje
+    icon_label = ctk.CTkLabel(win, text=c["icon"], font=("Segoe UI Emoji", 38), text_color=c["fg"], fg_color=c["bg"])
+    icon_label.pack(pady=(18, 0))
+    msg_label = ctk.CTkLabel(win, text=mensaje, font=("Quicksand", 13), text_color=c["fg"], fg_color=c["bg"])
+    msg_label.pack(pady=(8, 8), padx=20)
+    # Botón cerrar
+    ctk.CTkButton(win, text="Aceptar", command=win.destroy, fg_color=c["fg"], hover_color="#444", text_color="white", width=120, height=36, corner_radius=16, font=("Quicksand", 12, "bold")).pack(pady=(0, 18))
+    win.after(7000, win.destroy)  # autocerrar tras 7s
+    win.mainloop() if not hasattr(ctk, '_running_mainloop') else None
 
 class CrearProductoFrame(ctk.CTkFrame):
     def __init__(self, parent):
@@ -55,15 +80,20 @@ class CrearProductoFrame(ctk.CTkFrame):
         # -------- BOTÓN PARA ELEGIR IMAGEN --------
         self.ruta_imagen = None
 
-        self.btn_imagen = ctk.CTkButton(self.frame, text="Seleccionar Imagen", command=self.seleccionar_imagen,
-                                      fg_color="#557A46", font=("Quicksand", 12, "bold"))
-        self.btn_imagen.pack(pady=10)
+        self.btn_imagen = ctk.CTkButton(
+            self.frame, text="🖼️ Seleccionar Imagen", command=self.seleccionar_imagen,
+            fg_color="#43A047", hover_color="#357a38", text_color="white",
+            font=("Quicksand", 13, "bold"), corner_radius=18, width=200, height=38, border_width=0
+        )
+        self.btn_imagen.pack(pady=(10, 4))
 
         # -------- BOTÓN GUARDAR --------
-        self.btn_guardar = ctk.CTkButton(self.frame, text="Guardar Producto", width=260, height=40,
-                                       corner_radius=20, fg_color="#2F405F", hover_color="#1E2C45",
-                                       font=("Quicksand", 13, "bold"), command=self.guardar_producto)
-        self.btn_guardar.pack(pady=20)
+        self.btn_guardar = ctk.CTkButton(
+            self.frame, text="💾 Guardar Producto", command=self.guardar_producto,
+            fg_color="#1976D2", hover_color="#0D47A1", text_color="white",
+            font=("Quicksand", 14, "bold"), corner_radius=18, width=220, height=42, border_width=0
+        )
+        self.btn_guardar.pack(pady=16)
 
         # Cargar categorías al inicio
         self.cargar_categorias()
@@ -88,13 +118,13 @@ class CrearProductoFrame(ctk.CTkFrame):
     def seleccionar_imagen(self):
         self.ruta_imagen = filedialog.askopenfilename(filetypes=[("Imágenes", "*.jpg *.jpeg *.png")])
         if self.ruta_imagen:
-            messagebox.showinfo("Imagen seleccionada", f"Archivo: {os.path.basename(self.ruta_imagen)}")
+            mostrar_alerta("Imagen seleccionada", f"Archivo: {os.path.basename(self.ruta_imagen)}", tipo="info")
 
     def guardar_producto(self):
         url_api = INVENTORY_ENDPOINTS['register']
 
         if not self.ruta_imagen:
-            messagebox.showerror("Error", "Debes seleccionar una imagen.")
+            mostrar_alerta("Error", "Debes seleccionar una imagen.", tipo="error")
             return
 
         nombre_seleccionado = self.categoria_var.get()
@@ -107,7 +137,7 @@ class CrearProductoFrame(ctk.CTkFrame):
                 break
 
         if id_categoria is None:
-            messagebox.showerror("Error", "Categoría inválida seleccionada.")
+            mostrar_alerta("Error", "Categoría inválida seleccionada.", tipo="error")
             return
 
         data = {
@@ -120,7 +150,7 @@ class CrearProductoFrame(ctk.CTkFrame):
 
         for campo, valor in data.items():
             if not valor.strip():
-                messagebox.showerror("Campo vacío", f"El campo '{campo}' es obligatorio.")
+                mostrar_alerta("Campo vacío", f"El campo '{campo}' es obligatorio.", tipo="warning")
                 return
 
         try:
@@ -128,25 +158,29 @@ class CrearProductoFrame(ctk.CTkFrame):
                 files = {'imagen': img}
                 response = APIHandler.make_request('post', url_api, data=data, files=files)
 
-            print("Código de respuesta:", response.status_code)
-            print("Contenido bruto:", response.text)
+            if hasattr(response, 'status_code'):
+                code = response.status_code
+                content = getattr(response, 'text', '')
+            else:
+                code = response.get('status_code', 0)
+                content = response.get('text', '')
 
-            if response.status_code == 201:
-                messagebox.showinfo("Éxito", "Producto creado correctamente.")
+            if code == 201:
+                mostrar_alerta("Éxito", "Producto creado correctamente.", tipo="success")
                 # Limpiar campos después de guardar
                 for entrada in self.entradas.values():
                     entrada.delete(0, 'end')
                 self.ruta_imagen = None
             else:
                 try:
-                    resultado = response.json()
+                    resultado = response.json() if hasattr(response, 'json') else response.get('data', {})
                     errores = resultado.get("errors", resultado.get("message", "Error desconocido"))
-                    messagebox.showerror("Error", str(errores))
-                except ValueError:
-                    messagebox.showerror("Error", "La respuesta de la API no es un JSON válido.")
+                    mostrar_alerta("Error", str(errores), tipo="error")
+                except Exception:
+                    mostrar_alerta("Error", "La respuesta de la API no es un JSON válido.", tipo="error")
 
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo crear el producto: {str(e)}")
+            mostrar_alerta("Error", f"No se pudo crear el producto: {str(e)}", tipo="error")
 
 def abrir_ventana_crear_producto():
     # -------- CONFIGURACIÓN GLOBAL --------
