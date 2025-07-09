@@ -6,8 +6,7 @@ import os
 from datetime import datetime
 from src.core.config import INVENTORY_MANAGEMENT_ENDPOINTS, UI_CONFIG
 from src.shared.utils import APIHandler, UIHelper, SessionManager, DataValidator, DateTimeHelper
-from src.interfaces.management.product_creation import abrir_ventana_crear_producto
-from src.interfaces.management.products_section import ProductsSection
+from src.interfaces.management.products_management import ProductsSection
 from src.interfaces.management.categories_management import GestionCategoriasFrame
 from PIL import Image, ImageTk
 from src.shared.image_handler import ImageHandler
