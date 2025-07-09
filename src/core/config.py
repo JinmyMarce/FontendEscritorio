@@ -24,14 +24,50 @@ CLIENTS_ENDPOINTS = {
     'reset_password': f"{API_BASE_URL}/admin/users/{{id}}/reset-password"
 }
 
-# Endpoints de Inventario
+# Endpoints de Gestión de Inventario
+INVENTORY_MANAGEMENT_ENDPOINTS = {
+    # Endpoints de Categorías
+    'categories': {
+        'list': f"{API_BASE_URL}/admin/categories",  # GET - Listar todas las categorías
+        'create': f"{API_BASE_URL}/admin/categories",  # POST - Crear nueva categoría
+        'detail': f"{API_BASE_URL}/admin/categories/{{id}}",  # GET - Obtener detalles de categoría
+        'update': f"{API_BASE_URL}/admin/categories/{{id}}",  # PUT - Actualizar categoría completa
+        'partial_update': f"{API_BASE_URL}/admin/categories/{{id}}",  # PATCH - Actualización parcial
+        'delete': f"{API_BASE_URL}/admin/categories/{{id}}",  # DELETE - Eliminar categoría
+        'statistics': f"{API_BASE_URL}/admin/categories/statistics"  # GET - Estadísticas de categorías
+    },
+    
+    # Endpoints de Productos
+    'products': {
+        'list': f"{API_BASE_URL}/admin/products",  # GET - Listar todos los productos relacionados a una categoria en específico
+        'create': f"{API_BASE_URL}/admin/products",  # POST - Crear nuevo producto
+        'detail': f"{API_BASE_URL}/admin/products/{{id}}",  # GET - Obtener detalles de producto
+        'update': f"{API_BASE_URL}/admin/products/{{id}}",  # PUT - Actualizar producto completo
+        'partial_update': f"{API_BASE_URL}/admin/products/{{id}}",  # PATCH - Actualización parcial
+        'delete': f"{API_BASE_URL}/admin/products/{{id}}",  # DELETE - Eliminar producto
+        'update_status': f"{API_BASE_URL}/admin/products/{{id}}/status",  # PATCH - Actualizar estado
+        'low_stock': f"{API_BASE_URL}/admin/products/low-stock"  # GET - Productos con stock bajo
+    },
+    
+    # Endpoints de Inventario (Stock y Control)
+    'inventory': {
+        'create_entry': f"{API_BASE_URL}/admin/inventory",  # POST - Crear entrada de inventario
+        'products_list': f"{API_BASE_URL}/admin/inventory/products",  # GET - Lista de productos en inventario
+        'product_detail': f"{API_BASE_URL}/admin/inventory/products/{{id}}",  # GET - Detalle de producto en inventario
+        'update_status': f"{API_BASE_URL}/admin/inventory/products/{{id}}/status",  # PATCH - Actualizar estado en inventario
+        'update_stock': f"{API_BASE_URL}/admin/inventory/products/{{id}}/stock",  # PATCH - Actualizar stock
+        'statistics': f"{API_BASE_URL}/admin/inventory/statistics"  # GET - Estadísticas de inventario
+    }
+}
+
+# Endpoints de Inventario (Mantenido para compatibilidad)
 INVENTORY_ENDPOINTS = {
-    'list': f"{API_BASE_URL}/admin/inventario",
-    'detail': f"{API_BASE_URL}/admin/inventario/{{id}}",
-    'register': f"{API_BASE_URL}/admin/inventario/register",
-    'update': f"{API_BASE_URL}/admin/inventario/update/{{id}}",
-    'delete': f"{API_BASE_URL}/admin/inventario/{{id}}",
-    'categories': f"{API_BASE_URL}/admin/inventario/categorias"
+    'list': f"{API_BASE_URL}/admin/inventory/products",
+    'detail': f"{API_BASE_URL}/admin/inventory/products/{{id}}",
+    'register': f"{API_BASE_URL}/admin/inventory",
+    'update': f"{API_BASE_URL}/admin/products/{{id}}",
+    'delete': f"{API_BASE_URL}/admin/products/{{id}}",
+    'categories': f"{API_BASE_URL}/admin/categories"
 }
 
 # Endpoints de Pedidos
