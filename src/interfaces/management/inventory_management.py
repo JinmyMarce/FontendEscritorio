@@ -8,6 +8,7 @@ from src.core.config import INVENTORY_MANAGEMENT_ENDPOINTS, UI_CONFIG
 from src.shared.utils import APIHandler, UIHelper, SessionManager, DataValidator, DateTimeHelper
 from src.interfaces.management.product_creation import abrir_ventana_crear_producto
 from src.interfaces.management.products_section import ProductsSection
+from src.interfaces.management.categories_management import GestionCategoriasFrame
 from PIL import Image, ImageTk
 from src.shared.image_handler import ImageHandler
 
@@ -35,7 +36,6 @@ class GestionInventario(ctk.CTkFrame):
             self.image_handler = ImageHandler()
             
             # Variables de datos (solo las que aún se usan en este módulo principal)
-            self.categorias = []
             self.inventario = []
             
             # Variable para rastrear la sección actual
@@ -182,41 +182,11 @@ class GestionInventario(ctk.CTkFrame):
             messagebox.showerror("Error", f"Error al crear sección de productos: {str(e)}")
             
     def crear_seccion_categorias(self):
-        """Crear la sección de gestión de categorías"""
+        """Crear la sección de gestión de categorías usando el componente modular"""
         try:
-            # Frame principal de categorías
-            categorias_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-            categorias_frame.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
-            categorias_frame.grid_columnconfigure(0, weight=1)
-            categorias_frame.grid_rowconfigure(1, weight=1)
-            
-            # Información y botones
-            info_frame = ctk.CTkFrame(categorias_frame, fg_color="#FFFFFF", corner_radius=10)
-            info_frame.grid(row=0, column=0, sticky="ew", padx=0, pady=(0, 20))
-            
-            ctk.CTkLabel(
-                info_frame,
-                text="🏷️ Gestión de Categorías de Productos",
-                font=("Quicksand", 18, "bold"),
-                text_color="#2E6B5C"
-            ).pack(pady=20)
-            
-            # Botones de categorías
-            cat_buttons_frame = ctk.CTkFrame(info_frame, fg_color="transparent")
-            cat_buttons_frame.pack(pady=(0, 20))
-            
-            ctk.CTkButton(
-                cat_buttons_frame,
-                text="➕ Nueva Categoría",
-                command=self.nueva_categoria,
-                fg_color="#4A934A",
-                hover_color="#367832",
-                width=150
-            ).pack(side="left", padx=10)
-            
-            # Placeholder para tabla de categorías
-            self.crear_tabla_categorias(categorias_frame)
-            self.cargar_categorias()
+            # Crear y configurar la sección de categorías modular
+            self.categorias_section = GestionCategoriasFrame(self.content_frame)
+            self.categorias_section.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
             
         except Exception as e:
             messagebox.showerror("Error", f"Error al crear sección de categorías: {str(e)}")
@@ -260,63 +230,6 @@ class GestionInventario(ctk.CTkFrame):
             
         except Exception as e:
             messagebox.showerror("Error", f"Error al crear sección de stock: {str(e)}")
-            
-
-            
-    def crear_tabla_categorias(self, parent):
-        """Crear tabla para mostrar categorías"""
-        try:
-            # Frame para la tabla
-            table_frame = ctk.CTkFrame(parent, fg_color="#FFFFFF", corner_radius=10)
-            table_frame.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
-            
-            # Configurar estilo
-            style = ttk.Style()
-            style.configure(
-                "Categorias.Treeview",
-                background="#FFFFFF",
-                foreground="#4A934A",
-                rowheight=30,
-                fieldbackground="#FFFFFF"
-            )
-            style.configure(
-                "Categorias.Treeview.Heading",
-                background="#4A934A",
-                foreground="white",
-                font=("Quicksand", 12, "bold")
-            )
-            
-            # Crear Treeview
-            columns = ("id", "nombre", "descripcion", "productos_count")
-            self.tabla_categorias = ttk.Treeview(
-                table_frame, 
-                columns=columns, 
-                show="headings",
-                style="Categorias.Treeview"
-            )
-            
-            # Configurar columnas
-            self.tabla_categorias.heading("id", text="ID")
-            self.tabla_categorias.heading("nombre", text="Nombre")
-            self.tabla_categorias.heading("descripcion", text="Descripción")
-            self.tabla_categorias.heading("productos_count", text="N° Productos")
-            
-            # Configurar anchos
-            self.tabla_categorias.column("id", width=50)
-            self.tabla_categorias.column("nombre", width=150)
-            self.tabla_categorias.column("descripcion", width=300)
-            self.tabla_categorias.column("productos_count", width=120)
-            
-            # Scrollbars
-            v_scrollbar_cat = ttk.Scrollbar(table_frame, orient="vertical", command=self.tabla_categorias.yview)
-            self.tabla_categorias.configure(yscrollcommand=v_scrollbar_cat.set)
-            
-            # Empaquetar
-            self.tabla_categorias.pack(side="left", fill="both", expand=True, padx=20, pady=20)
-            v_scrollbar_cat.pack(side="right", fill="y")
-            
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al crear tabla de categorías: {str(e)}")
             
     def crear_tabla_stock(self, parent):
         """Crear tabla para control de stock"""
@@ -377,44 +290,6 @@ class GestionInventario(ctk.CTkFrame):
     # MÉTODOS DE CARGA DE DATOS
     # =================================================================================
     
-    def cargar_categorias(self):
-        """Cargar categorías desde la API"""
-        try:
-            url = INVENTORY_MANAGEMENT_ENDPOINTS['categories']['list']
-            token = SessionManager.get_token()
-            headers = {'Authorization': f'Bearer {token}'} if token else {}
-            
-            response = APIHandler.make_request('GET', url, headers=headers)
-            if response['status_code'] == 200:
-                # Adaptar estructura de datos de la API
-                api_data = response['data']
-                if isinstance(api_data, dict) and 'data' in api_data:
-                    self.categorias = api_data['data']  # Extraer el array de categorías
-                else:
-                    self.categorias = api_data if isinstance(api_data, list) else []
-                    
-                self.actualizar_tabla_categorias()
-            else:
-                messagebox.showerror("Error", f"Error al cargar categorías: {response.get('data', 'Error desconocido')}")
-                self.cargar_categorias_ejemplo()
-                
-        except Exception as e:
-            print(f"Error al cargar categorías: {str(e)}")  # Para debugging
-            messagebox.showerror("Error", f"Error al cargar categorías: {str(e)}")
-            self.cargar_categorias_ejemplo()
-            
-    def cargar_categorias_ejemplo(self):
-        """Cargar datos de ejemplo para categorías"""
-        self.categorias = [
-            {
-                "id_categoria": 1,
-                "nombre": "Paquetes de Fresas",
-                "descripcion": "Frutas frescas y de temporada",
-                "productos_count": 3
-            }
-        ]
-        self.actualizar_tabla_categorias()
-            
     def cargar_inventario(self):
         """Cargar inventario desde la API"""
         try:
@@ -461,38 +336,6 @@ class GestionInventario(ctk.CTkFrame):
     # MÉTODOS DE ACTUALIZACIÓN DE TABLAS
     # =================================================================================
     
-    def actualizar_tabla_categorias(self):
-        """Actualizar tabla de categorías"""
-        try:
-            if hasattr(self, 'tabla_categorias'):
-                # Limpiar tabla
-                for item in self.tabla_categorias.get_children():
-                    self.tabla_categorias.delete(item)
-                    
-                # Mostrar categorías
-                for categoria in self.categorias:
-                    # Verificar que categoria sea un diccionario
-                    if not isinstance(categoria, dict):
-                        continue
-                        
-                    # Obtener datos según la estructura de la API
-                    id_categoria = categoria.get("id_categoria", "")
-                    nombre = categoria.get("nombre", "")
-                    descripcion = categoria.get("descripcion", "")
-                    productos_count = categoria.get("productos_count", 0)
-                    
-                    # Insertar en tabla
-                    self.tabla_categorias.insert("", "end", values=(
-                        id_categoria,
-                        nombre,
-                        descripcion,
-                        productos_count
-                    ))
-                    
-        except Exception as e:
-            print(f"Error en actualizar_tabla_categorias: {str(e)}")  # Para debugging
-            messagebox.showerror("Error", f"Error al actualizar tabla de categorías: {str(e)}")
-            
     def actualizar_tabla_stock(self):
         """Actualizar tabla de stock"""
         try:
@@ -543,21 +386,9 @@ class GestionInventario(ctk.CTkFrame):
             messagebox.showerror("Error", f"Error al actualizar tabla de stock: {str(e)}")
             
     # =================================================================================
-    # MÉTODOS DE FILTRADO
-    # =================================================================================
-    
-    # =================================================================================
     # MÉTODOS DE ACCIONES
     # =================================================================================
     
-    def nueva_categoria(self):
-        """Crear nueva categoría"""
-        try:
-            # TODO: Implementar ventana de creación de categoría
-            messagebox.showinfo("Info", "Funcionalidad de nueva categoría en desarrollo")
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al crear nueva categoría: {str(e)}")
-            
     def gestionar_stock_general(self):
         """Gestión general de stock"""
         try:
