@@ -1,6 +1,10 @@
 import customtkinter as ctk
 import tkinter.messagebox as messagebox
-from tkinter import ttk
+from tkinter import ttk, filedialog
+import os
+import json
+import requests
+from PIL import Image, ImageTk
 from src.core.config import INVENTORY_MANAGEMENT_ENDPOINTS
 from src.shared.utils import APIHandler, SessionManager
 
@@ -286,11 +290,11 @@ class ProductsSection(ctk.CTkFrame):
                 else:
                     categoria_nombre = str(categoria_info) if categoria_info else "Sin categoría"
                 
-                # Formatear precio
+                # Formatear precio en soles peruanos
                 try:
-                    precio_formateado = f"${float(precio):.2f}"
+                    precio_formateado = f"S/ {float(precio):.2f}"
                 except:
-                    precio_formateado = f"${precio}"
+                    precio_formateado = f"S/ {precio}"
                 
                 # Insertar en tabla
                 self.tabla.insert("", "end", values=(
@@ -310,8 +314,11 @@ class ProductsSection(ctk.CTkFrame):
     def abrir_modal_nuevo_producto(self):
         """Abrir modal para crear nuevo producto"""
         try:
-            # TODO: Implementar modal de nuevo producto
-            messagebox.showinfo("Info", "Funcionalidad de nuevo producto en desarrollo")
+            modal = ModalProducto(
+                self, 
+                "Nuevo Producto",
+                callback_guardar=self.guardar_producto_modal
+            )
         except Exception as e:
             messagebox.showerror("Error", f"Error al abrir modal de nuevo producto: {str(e)}")
 
@@ -322,10 +329,125 @@ class ProductsSection(ctk.CTkFrame):
                 messagebox.showwarning("Advertencia", "Seleccione un producto para editar")
                 return
                 
-            # TODO: Implementar modal de editar producto
-            messagebox.showinfo("Info", f"Editar producto: {self.producto_seleccionado.get('nombre', '')}")
+            modal = ModalProducto(
+                self,
+                "Editar Producto",
+                producto=self.producto_seleccionado,
+                callback_guardar=self.actualizar_producto_modal,
+                callback_eliminar=self.eliminar_producto_modal
+            )
         except Exception as e:
             messagebox.showerror("Error", f"Error al abrir modal de editar producto: {str(e)}")
+
+    def guardar_producto_modal(self, datos_producto):
+        """Callback para guardar producto desde modal"""
+        try:
+            url = INVENTORY_MANAGEMENT_ENDPOINTS['products']['create']
+            token = SessionManager.get_token()
+            headers = {'Authorization': f'Bearer {token}'} if token else {}
+            
+            # Preparar datos para envío
+            data = {
+                'nombre': datos_producto['nombre'],
+                'descripcion': datos_producto['descripcion'],
+                'precio': datos_producto['precio'],
+                'peso': datos_producto['peso'],
+                'categorias_id_categoria': datos_producto['categoria_id'],
+                'estado': '1'  # Por defecto activo
+            }
+            
+            # Si hay stock, agregarlo
+            if datos_producto.get('stock'):
+                data['stock'] = datos_producto['stock']
+            
+            files = {}
+            # Si hay imagen, prepararla para upload
+            if datos_producto.get('imagen_path'):
+                try:
+                    with open(datos_producto['imagen_path'], 'rb') as f:
+                        files['imagen'] = ('image.jpg', f, 'image/jpeg')
+                        
+                        # Usar requests directamente para multipart/form-data
+                        response = requests.post(
+                            url,
+                            data=data,
+                            files=files,
+                            headers={'Authorization': f'Bearer {token}'} if token else {}
+                        )
+                        
+                        if response.status_code == 201:
+                            messagebox.showinfo("Éxito", "Producto creado exitosamente")
+                            self.cargar_productos()
+                            return True
+                        else:
+                            error_msg = response.json().get('message', 'Error al crear producto')
+                            messagebox.showerror("Error", error_msg)
+                            return False
+                            
+                except Exception as e:
+                    messagebox.showerror("Error", f"Error al cargar imagen: {str(e)}")
+                    return False
+            else:
+                # Sin imagen, usar APIHandler normal
+                response = APIHandler.make_request('POST', url, headers=headers, data=data)
+                if response['status_code'] == 201:
+                    messagebox.showinfo("Éxito", "Producto creado exitosamente")
+                    self.cargar_productos()
+                    return True
+                else:
+                    error_msg = response.get('data', {}).get('message', 'Error al crear producto')
+                    messagebox.showerror("Error", error_msg)
+                    return False
+                    
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al guardar producto: {str(e)}")
+            return False
+
+    def actualizar_producto_modal(self, producto_id, datos_producto):
+        """Callback para actualizar producto desde modal"""
+        try:
+            # TODO: Implementar actualización de producto
+            messagebox.showinfo("Info", f"Actualizar producto ID: {producto_id}")
+            return True
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al actualizar producto: {str(e)}")
+            return False
+
+    def eliminar_producto_modal(self, producto_id, nombre_producto):
+        """Callback para eliminar producto desde modal"""
+        try:
+            # TODO: Implementar eliminación de producto
+            messagebox.showinfo("Info", f"Eliminar producto: {nombre_producto}")
+            return True
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al eliminar producto: {str(e)}")
+            return False
+
+    def cargar_categorias_para_modal(self):
+        """Cargar categorías disponibles para el modal"""
+        try:
+            url = INVENTORY_MANAGEMENT_ENDPOINTS['categories']['list']
+            token = SessionManager.get_token()
+            headers = {'Authorization': f'Bearer {token}'} if token else {}
+            
+            response = APIHandler.make_request('GET', url, headers=headers)
+            if response['status_code'] == 200:
+                api_data = response['data']
+                if isinstance(api_data, dict) and 'data' in api_data:
+                    return api_data['data']
+                else:
+                    return api_data if isinstance(api_data, list) else []
+            else:
+                # Datos de ejemplo si falla la API
+                return [
+                    {"id_categoria": 1, "nombre": "Paquetes de Fresas"},
+                    {"id_categoria": 2, "nombre": "Mermeladas"},
+                    {"id_categoria": 3, "nombre": "Fresas Deshidratadas"},
+                    {"id_categoria": 4, "nombre": "Combos Especiales"}
+                ]
+        except Exception as e:
+            print(f"Error al cargar categorías: {str(e)}")
+            return []
 
     def on_select(self, event):
         """Manejar selección de producto en la tabla"""
@@ -349,7 +471,9 @@ class ProductsSection(ctk.CTkFrame):
     def on_double_click(self, event):
         """Manejar doble clic en la tabla"""
         try:
-            self.abrir_modal_editar_producto()
+            if self.producto_seleccionado:
+                # Abrir modal de detalles del producto
+                ModalDetalleProducto(self, self.producto_seleccionado)
         except Exception as e:
             print(f"Error en on_double_click: {str(e)}")
 
@@ -370,6 +494,731 @@ class ProductsSection(ctk.CTkFrame):
         """Obtener el producto seleccionado en la tabla"""
         return self.producto_seleccionado
 
+
+class ModalProducto(ctk.CTkToplevel):
+    """Modal para crear/editar productos"""
+    
+    def __init__(self, parent, titulo, producto=None, callback_guardar=None, callback_eliminar=None):
+        super().__init__(parent)
+        
+        self.producto = producto
+        self.callback_guardar = callback_guardar
+        self.callback_eliminar = callback_eliminar
+        self.es_edicion = producto is not None
+        self.imagen_path = None
+        self.imagen_preview = None
+        
+        # Configurar ventana
+        self.title(titulo)
+        self.geometry("700x800")
+        self.resizable(False, False)
+        
+        # Centrar ventana relativa al parent
+        self.transient(parent)
+        
+        # Configurar grid
+        self.grid_columnconfigure(0, weight=1)
+        
+        # Cargar categorías
+        self.categorias = parent.cargar_categorias_para_modal()
+        
+        self.setup_ui()
+        
+        # Si es edición, llenar campos
+        if self.es_edicion:
+            self.llenar_campos()
+            
+        # Hacer el grab de manera segura después de que la ventana esté lista
+        self.after(10, self.configurar_modal)
+    
+    def setup_ui(self):
+        # Título del modal
+        titulo_label = ctk.CTkLabel(
+            self,
+            text="Nuevo Producto" if not self.es_edicion else "Editar Producto",
+            font=("Quicksand", 20, "bold"),
+            text_color="#2E6B5C"
+        )
+        titulo_label.grid(row=0, column=0, pady=20, sticky="ew")
+        
+        # Scrollable frame para el contenido
+        self.scroll_frame = ctk.CTkScrollableFrame(self, fg_color="#F8F9FA", corner_radius=10)
+        self.scroll_frame.grid(row=1, column=0, padx=30, pady=(0, 20), sticky="nsew")
+        self.scroll_frame.grid_columnconfigure(0, weight=1)
+        
+        # ID (solo en edición)
+        if self.es_edicion:
+            ctk.CTkLabel(
+                self.scroll_frame,
+                text="ID del Producto:",
+                font=("Quicksand", 12, "bold"),
+                text_color="#2E6B5C"
+            ).grid(row=0, column=0, sticky="w", padx=20, pady=(20, 5))
+            
+            self.id_entry = ctk.CTkEntry(
+                self.scroll_frame,
+                font=("Quicksand", 12),
+                state="disabled"
+            )
+            self.id_entry.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 15))
+        
+        # Nombre
+        ctk.CTkLabel(
+            self.scroll_frame,
+            text="Nombre del Producto: *",
+            font=("Quicksand", 12, "bold"),
+            text_color="#2E6B5C"
+        ).grid(row=2, column=0, sticky="w", padx=20, pady=(0, 5))
+        
+        self.nombre_entry = ctk.CTkEntry(
+            self.scroll_frame,
+            font=("Quicksand", 12),
+            placeholder_text="Ingrese el nombre del producto"
+        )
+        self.nombre_entry.grid(row=3, column=0, sticky="ew", padx=20, pady=(0, 15))
+        
+        # Descripción
+        ctk.CTkLabel(
+            self.scroll_frame,
+            text="Descripción: *",
+            font=("Quicksand", 12, "bold"),
+            text_color="#2E6B5C"
+        ).grid(row=4, column=0, sticky="w", padx=20, pady=(0, 5))
+        
+        self.descripcion_text = ctk.CTkTextbox(
+            self.scroll_frame,
+            height=100,
+            font=("Quicksand", 12)
+        )
+        self.descripcion_text.grid(row=5, column=0, sticky="ew", padx=20, pady=(0, 15))
+        
+        # Frame para precio y peso (en la misma fila)
+        precio_peso_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
+        precio_peso_frame.grid(row=6, column=0, sticky="ew", padx=20, pady=(0, 15))
+        precio_peso_frame.grid_columnconfigure(0, weight=1)
+        precio_peso_frame.grid_columnconfigure(1, weight=1)
+        
+        # Precio
+        ctk.CTkLabel(
+            precio_peso_frame,
+            text="Precio (S/): *",
+            font=("Quicksand", 12, "bold"),
+            text_color="#2E6B5C"
+        ).grid(row=0, column=0, sticky="w", padx=(0, 10), pady=(0, 5))
+        
+        self.precio_entry = ctk.CTkEntry(
+            precio_peso_frame,
+            font=("Quicksand", 12),
+            placeholder_text="0.00"
+        )
+        self.precio_entry.grid(row=1, column=0, sticky="ew", padx=(0, 10))
+        
+        # Peso
+        ctk.CTkLabel(
+            precio_peso_frame,
+            text="Peso: *",
+            font=("Quicksand", 12, "bold"),
+            text_color="#2E6B5C"
+        ).grid(row=0, column=1, sticky="w", padx=(10, 0), pady=(0, 5))
+        
+        self.peso_entry = ctk.CTkEntry(
+            precio_peso_frame,
+            font=("Quicksand", 12),
+            placeholder_text="ej: 500g, 1kg"
+        )
+        self.peso_entry.grid(row=1, column=1, sticky="ew", padx=(10, 0))
+        
+        # Frame para categoría y stock
+        cat_stock_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
+        cat_stock_frame.grid(row=7, column=0, sticky="ew", padx=20, pady=(0, 15))
+        cat_stock_frame.grid_columnconfigure(0, weight=1)
+        cat_stock_frame.grid_columnconfigure(1, weight=1)
+        
+        # Categoría
+        ctk.CTkLabel(
+            cat_stock_frame,
+            text="Categoría: *",
+            font=("Quicksand", 12, "bold"),
+            text_color="#2E6B5C"
+        ).grid(row=0, column=0, sticky="w", padx=(0, 10), pady=(0, 5))
+        
+        # Preparar valores para el dropdown de categorías
+        categoria_valores = ["Seleccionar categoría..."]
+        categoria_valores.extend([cat.get('nombre', '') for cat in self.categorias])
+        
+        self.categoria_dropdown = ctk.CTkOptionMenu(
+            cat_stock_frame,
+            values=categoria_valores,
+            font=("Quicksand", 12),
+            fg_color="#4A934A",
+            button_color="#367832"
+        )
+        self.categoria_dropdown.grid(row=1, column=0, sticky="ew", padx=(0, 10))
+        
+        # Stock inicial (opcional)
+        ctk.CTkLabel(
+            cat_stock_frame,
+            text="Stock Inicial:",
+            font=("Quicksand", 12, "bold"),
+            text_color="#2E6B5C"
+        ).grid(row=0, column=1, sticky="w", padx=(10, 0), pady=(0, 5))
+        
+        self.stock_entry = ctk.CTkEntry(
+            cat_stock_frame,
+            font=("Quicksand", 12),
+            placeholder_text="0"
+        )
+        self.stock_entry.grid(row=1, column=1, sticky="ew", padx=(10, 0))
+        
+        # Sección de imagen
+        ctk.CTkLabel(
+            self.scroll_frame,
+            text="Imagen del Producto:",
+            font=("Quicksand", 12, "bold"),
+            text_color="#2E6B5C"
+        ).grid(row=8, column=0, sticky="w", padx=20, pady=(0, 5))
+        
+        # Frame para imagen
+        imagen_frame = ctk.CTkFrame(self.scroll_frame, fg_color="#FFFFFF", corner_radius=10)
+        imagen_frame.grid(row=9, column=0, sticky="ew", padx=20, pady=(0, 15))
+        imagen_frame.grid_columnconfigure(0, weight=1)
+        
+        # Botón para seleccionar imagen
+        self.btn_seleccionar_imagen = ctk.CTkButton(
+            imagen_frame,
+            text="📷 Seleccionar Imagen",
+            command=self.seleccionar_imagen,
+            font=("Quicksand", 12, "bold"),
+            fg_color="#4A934A",
+            hover_color="#367832",
+            width=200,
+            height=35
+        )
+        self.btn_seleccionar_imagen.grid(row=0, column=0, padx=20, pady=15)
+        
+        # Label para preview de imagen
+        self.imagen_label = ctk.CTkLabel(
+            imagen_frame,
+            text="No se ha seleccionado imagen",
+            font=("Quicksand", 10),
+            text_color="#666666"
+        )
+        self.imagen_label.grid(row=1, column=0, padx=20, pady=(0, 15))
+        
+        # Frame de botones
+        botones_frame = ctk.CTkFrame(self, fg_color="transparent")
+        botones_frame.grid(row=2, column=0, pady=20, sticky="ew")
+        
+        if self.es_edicion:
+            # Botones para edición
+            ctk.CTkButton(
+                botones_frame,
+                text="💾 Actualizar",
+                command=self.actualizar_producto,
+                font=("Quicksand", 12, "bold"),
+                fg_color="#2E6B5C",
+                hover_color="#24544A",
+                width=120,
+                height=35
+            ).pack(side="left", padx=10)
+            
+            ctk.CTkButton(
+                botones_frame,
+                text="🗑️ Eliminar",
+                command=self.eliminar_producto,
+                font=("Quicksand", 12, "bold"),
+                fg_color="#DC3545",
+                hover_color="#B02A37",
+                width=120,
+                height=35
+            ).pack(side="left", padx=10)
+        else:
+            # Botón para crear
+            ctk.CTkButton(
+                botones_frame,
+                text="💾 Crear Producto",
+                command=self.guardar_producto,
+                font=("Quicksand", 12, "bold"),
+                fg_color="#2E6B5C",
+                hover_color="#24544A",
+                width=150,
+                height=35
+            ).pack(side="left", padx=10)
+        
+        # Botón cancelar
+        ctk.CTkButton(
+            botones_frame,
+            text="❌ Cancelar",
+            command=self.cerrar_modal,
+            font=("Quicksand", 12, "bold"),
+            fg_color="#6C757D",
+            hover_color="#5A6268",
+            width=120,
+            height=35
+        ).pack(side="right", padx=10)
+    
+    def seleccionar_imagen(self):
+        """Seleccionar archivo de imagen"""
+        try:
+            tipos_archivo = [
+                ("Imágenes", "*.jpg *.jpeg *.png *.gif *.bmp *.webp"),
+                ("JPEG", "*.jpg *.jpeg"),
+                ("PNG", "*.png"),
+                ("Todos los archivos", "*.*")
+            ]
+            
+            archivo = filedialog.askopenfilename(
+                title="Seleccionar imagen del producto",
+                filetypes=tipos_archivo
+            )
+            
+            if archivo:
+                self.imagen_path = archivo
+                nombre_archivo = os.path.basename(archivo)
+                self.imagen_label.configure(text=f"Imagen seleccionada: {nombre_archivo}")
+                self.btn_seleccionar_imagen.configure(text="📷 Cambiar Imagen")
+                
+                # Mostrar preview si es posible
+                self.mostrar_preview_imagen(archivo)
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al seleccionar imagen: {str(e)}")
+    
+    def mostrar_preview_imagen(self, ruta_imagen):
+        """Mostrar preview de la imagen seleccionada"""
+        try:
+            # Cargar y redimensionar imagen para preview
+            imagen = Image.open(ruta_imagen)
+            imagen.thumbnail((150, 150), Image.Resampling.LANCZOS)
+            
+            # Convertir a PhotoImage
+            self.imagen_preview = ImageTk.PhotoImage(imagen)
+            
+            # Actualizar label con la imagen
+            self.imagen_label.configure(image=self.imagen_preview, text="")
+            
+        except Exception as e:
+            print(f"Error al mostrar preview: {str(e)}")
+    
+    def llenar_campos(self):
+        """Llenar campos con datos de producto existente"""
+        if not self.producto:
+            return
+            
+        # ID
+        if hasattr(self, 'id_entry'):
+            self.id_entry.configure(state="normal")
+            self.id_entry.delete(0, "end")
+            self.id_entry.insert(0, str(self.producto.get('id_producto', '')))
+            self.id_entry.configure(state="disabled")
+        
+        # Nombre
+        self.nombre_entry.delete(0, "end")
+        self.nombre_entry.insert(0, self.producto.get('nombre', ''))
+        
+        # Descripción
+        self.descripcion_text.delete("1.0", "end")
+        self.descripcion_text.insert("1.0", self.producto.get('descripcion', ''))
+        
+        # Precio
+        self.precio_entry.delete(0, "end")
+        self.precio_entry.insert(0, str(self.producto.get('precio', '')))
+        
+        # Peso
+        self.peso_entry.delete(0, "end")
+        self.peso_entry.insert(0, self.producto.get('peso', ''))
+        
+        # Categoría
+        categoria_producto = self.producto.get('categoria', {})
+        if isinstance(categoria_producto, dict):
+            nombre_categoria = categoria_producto.get('nombre', '')
+            if nombre_categoria:
+                self.categoria_dropdown.set(nombre_categoria)
+    
+    def validar_campos(self):
+        """Validar que todos los campos requeridos estén llenos"""
+        errores = []
+        
+        # Nombre
+        if not self.nombre_entry.get().strip():
+            errores.append("El nombre es requerido")
+        elif len(self.nombre_entry.get().strip()) < 3:
+            errores.append("El nombre debe tener al menos 3 caracteres")
+        
+        # Descripción
+        descripcion = self.descripcion_text.get("1.0", "end-1c").strip()
+        if not descripcion:
+            errores.append("La descripción es requerida")
+        elif len(descripcion) < 10:
+            errores.append("La descripción debe tener al menos 10 caracteres")
+        
+        # Precio
+        try:
+            precio = float(self.precio_entry.get().strip())
+            if precio < 0:
+                errores.append("El precio debe ser mayor o igual a 0")
+        except ValueError:
+            errores.append("El precio debe ser un número válido")
+        
+        # Peso
+        if not self.peso_entry.get().strip():
+            errores.append("El peso es requerido")
+        
+        # Categoría
+        categoria_seleccionada = self.categoria_dropdown.get()
+        if categoria_seleccionada == "Seleccionar categoría...":
+            errores.append("Debe seleccionar una categoría")
+        
+        return errores
+    
+    def obtener_categoria_id(self):
+        """Obtener el ID de la categoría seleccionada"""
+        categoria_nombre = self.categoria_dropdown.get()
+        for categoria in self.categorias:
+            if categoria.get('nombre') == categoria_nombre:
+                return categoria.get('id_categoria')
+        return None
+    
+    def guardar_producto(self):
+        """Guardar nuevo producto"""
+        errores = self.validar_campos()
+        if errores:
+            messagebox.showerror("Error de validación", "\n".join(errores))
+            return
+        
+        try:
+            # Preparar datos
+            datos_producto = {
+                'nombre': self.nombre_entry.get().strip(),
+                'descripcion': self.descripcion_text.get("1.0", "end-1c").strip(),
+                'precio': self.precio_entry.get().strip(),
+                'peso': self.peso_entry.get().strip(),
+                'categoria_id': self.obtener_categoria_id(),
+                'stock': self.stock_entry.get().strip() or '0'
+            }
+            
+            # Agregar imagen si existe
+            if self.imagen_path:
+                datos_producto['imagen_path'] = self.imagen_path
+            
+            # Llamar callback
+            if self.callback_guardar and self.callback_guardar(datos_producto):
+                self.cerrar_modal()
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al guardar producto: {str(e)}")
+    
+    def actualizar_producto(self):
+        """Actualizar producto existente"""
+        errores = self.validar_campos()
+        if errores:
+            messagebox.showerror("Error de validación", "\n".join(errores))
+            return
+        
+        try:
+            # Preparar datos
+            datos_producto = {
+                'nombre': self.nombre_entry.get().strip(),
+                'descripcion': self.descripcion_text.get("1.0", "end-1c").strip(),
+                'precio': self.precio_entry.get().strip(),
+                'peso': self.peso_entry.get().strip(),
+                'categoria_id': self.obtener_categoria_id(),
+                'stock': self.stock_entry.get().strip() or '0'
+            }
+            
+            # Agregar imagen si existe
+            if self.imagen_path:
+                datos_producto['imagen_path'] = self.imagen_path
+            
+            # Llamar callback
+            if self.callback_guardar:
+                producto_id = self.producto.get('id_producto')
+                if self.callback_guardar(producto_id, datos_producto):
+                    self.cerrar_modal()
+                    
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al actualizar producto: {str(e)}")
+    
+    def eliminar_producto(self):
+        """Eliminar producto"""
+        if self.callback_eliminar:
+            producto_id = self.producto.get('id_producto')
+            nombre_producto = self.producto.get('nombre', '')
+            if self.callback_eliminar(producto_id, nombre_producto):
+                self.cerrar_modal()
+    
+    def cerrar_modal(self):
+        """Cerrar el modal de forma segura"""
+        try:
+            self.grab_release()
+        except:
+            pass
+        finally:
+            self.destroy()
+    
+    def configurar_modal(self):
+        """Configurar el modal de forma segura después de que esté visible"""
+        try:
+            self.center_window()
+            if self.winfo_exists():
+                self.grab_set()
+        except Exception as e:
+            print(f"Error al configurar modal: {str(e)}")
+    
+    def center_window(self):
+        """Centrar la ventana en la pantalla"""
+        try:
+            self.update_idletasks()
+            width = self.winfo_width()
+            height = self.winfo_height()
+            x = (self.winfo_screenwidth() // 2) - (width // 2)
+            y = (self.winfo_screenheight() // 2) - (height // 2)
+            self.geometry(f"{width}x{height}+{x}+{y}")
+        except Exception as e:
+            print(f"Error al centrar ventana: {str(e)}")
+
+
+class ModalDetalleProducto(ctk.CTkToplevel):
+    """Modal para mostrar detalles completos de un producto"""
+    
+    def __init__(self, parent, producto):
+        super().__init__(parent)
+        
+        self.producto = producto
+        
+        # Configurar ventana
+        self.title(f"Detalles - {producto.get('nombre', 'Producto')}")
+        self.geometry("600x700")
+        self.resizable(False, False)
+        
+        # Centrar ventana relativa al parent
+        self.transient(parent)
+        
+        # Configurar grid
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+        
+        self.setup_ui()
+        self.cargar_imagen()
+        
+        # Configurar modal
+        self.after(10, self.configurar_modal)
+    
+    def setup_ui(self):
+        # Header del modal
+        header_frame = ctk.CTkFrame(self, fg_color="#2E6B5C", corner_radius=0)
+        header_frame.grid(row=0, column=0, sticky="ew")
+        header_frame.grid_columnconfigure(0, weight=1)
+        
+        # Título
+        titulo_label = ctk.CTkLabel(
+            header_frame,
+            text=f"Detalles del Producto",
+            font=("Quicksand", 18, "bold"),
+            text_color="white"
+        )
+        titulo_label.grid(row=0, column=0, padx=20, pady=15, sticky="w")
+        
+        # Botones de acción
+        botones_header_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        botones_header_frame.grid(row=0, column=1, padx=20, pady=15, sticky="e")
+        
+        # Botón editar
+        ctk.CTkButton(
+            botones_header_frame,
+            text="✏️ Editar",
+            command=self.editar_producto,
+            font=("Quicksand", 12, "bold"),
+            fg_color="#4A934A",
+            hover_color="#367832",
+            width=80,
+            height=30
+        ).pack(side="left", padx=5)
+        
+        # Botón cerrar
+        ctk.CTkButton(
+            botones_header_frame,
+            text="✕ Cerrar",
+            command=self.cerrar_modal,
+            font=("Quicksand", 12, "bold"),
+            fg_color="#DC3545",
+            hover_color="#B02A37",
+            width=80,
+            height=30
+        ).pack(side="left", padx=5)
+        
+        # Scrollable frame para el contenido
+        self.scroll_frame = ctk.CTkScrollableFrame(self, fg_color="#F8F9FA", corner_radius=10)
+        self.scroll_frame.grid(row=1, column=0, padx=20, pady=20, sticky="nsew")
+        self.scroll_frame.grid_columnconfigure(0, weight=1)
+        
+        # Imagen del producto
+        self.imagen_frame = ctk.CTkFrame(self.scroll_frame, fg_color="#FFFFFF", corner_radius=10)
+        self.imagen_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 15))
+        
+        self.imagen_label = ctk.CTkLabel(
+            self.imagen_frame,
+            text="Cargando imagen...",
+            font=("Quicksand", 12),
+            text_color="#666666"
+        )
+        self.imagen_label.pack(pady=20)
+        
+        # Información básica
+        info_frame = ctk.CTkFrame(self.scroll_frame, fg_color="#FFFFFF", corner_radius=10)
+        info_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 15))
+        info_frame.grid_columnconfigure(1, weight=1)
+        
+        # ID
+        self.crear_campo_info(info_frame, 0, "ID:", str(self.producto.get('id_producto', 'N/A')))
+        
+        # Nombre
+        self.crear_campo_info(info_frame, 1, "Nombre:", self.producto.get('nombre', 'N/A'))
+        
+        # Descripción
+        self.crear_campo_info(info_frame, 2, "Descripción:", self.producto.get('descripcion', 'N/A'))
+        
+        # Precio
+        precio = self.producto.get('precio', '0')
+        try:
+            precio_formateado = f"S/ {float(precio):.2f}"
+        except:
+            precio_formateado = f"S/ {precio}"
+        self.crear_campo_info(info_frame, 3, "Precio:", precio_formateado)
+        
+        # Peso
+        self.crear_campo_info(info_frame, 4, "Peso:", self.producto.get('peso', 'N/A'))
+        
+        # Estado
+        estado = self.producto.get('estado', 'N/A').title()
+        self.crear_campo_info(info_frame, 5, "Estado:", estado)
+        
+        # Categoría
+        categoria_info = self.producto.get('categoria', {})
+        if isinstance(categoria_info, dict):
+            categoria_nombre = categoria_info.get('nombre', 'N/A')
+        else:
+            categoria_nombre = str(categoria_info) if categoria_info else 'N/A'
+        self.crear_campo_info(info_frame, 6, "Categoría:", categoria_nombre)
+        
+        # Fechas
+        fecha_creacion = self.producto.get('fecha_creacion', '')
+        if fecha_creacion:
+            try:
+                from datetime import datetime
+                fecha_obj = datetime.fromisoformat(fecha_creacion.replace('Z', '+00:00'))
+                fecha_formateada = fecha_obj.strftime("%d/%m/%Y %H:%M")
+            except:
+                fecha_formateada = fecha_creacion
+        else:
+            fecha_formateada = 'N/A'
+        self.crear_campo_info(info_frame, 7, "Fecha de Creación:", fecha_formateada)
+    
+    def crear_campo_info(self, parent, row, label, valor):
+        """Crear un campo de información en el modal"""
+        # Label
+        ctk.CTkLabel(
+            parent,
+            text=label,
+            font=("Quicksand", 12, "bold"),
+            text_color="#2E6B5C",
+            anchor="w"
+        ).grid(row=row, column=0, sticky="w", padx=20, pady=10)
+        
+        # Valor
+        ctk.CTkLabel(
+            parent,
+            text=str(valor),
+            font=("Quicksand", 12),
+            text_color="#333333",
+            anchor="w",
+            wraplength=300
+        ).grid(row=row, column=1, sticky="ew", padx=(10, 20), pady=10)
+    
+    def cargar_imagen(self):
+        """Cargar imagen del producto"""
+        try:
+            url_imagen = self.producto.get('url_imagen_completa') or self.producto.get('url_imagen')
+            
+            if url_imagen and url_imagen != 'productos/default.jpg':
+                # Intentar cargar imagen desde URL
+                import requests
+                from io import BytesIO
+                
+                try:
+                    response = requests.get(url_imagen, timeout=10)
+                    if response.status_code == 200:
+                        imagen_data = BytesIO(response.content)
+                        imagen = Image.open(imagen_data)
+                        
+                        # Redimensionar imagen manteniendo proporción
+                        imagen.thumbnail((250, 250), Image.Resampling.LANCZOS)
+                        
+                        # Convertir a PhotoImage
+                        self.imagen_preview = ImageTk.PhotoImage(imagen)
+                        
+                        # Actualizar label con la imagen
+                        self.imagen_label.configure(
+                            image=self.imagen_preview,
+                            text=""
+                        )
+                    else:
+                        self.imagen_label.configure(text="No se pudo cargar la imagen")
+                        
+                except Exception as e:
+                    print(f"Error al cargar imagen desde URL: {str(e)}")
+                    self.imagen_label.configure(text="Error al cargar imagen")
+            else:
+                self.imagen_label.configure(text="Sin imagen disponible")
+                
+        except Exception as e:
+            print(f"Error en cargar_imagen: {str(e)}")
+            self.imagen_label.configure(text="Error al cargar imagen")
+    
+    def editar_producto(self):
+        """Abrir modal de edición"""
+        try:
+            # Cerrar este modal primero
+            self.cerrar_modal()
+            
+            # Abrir modal de edición
+            # Necesitamos acceso al parent original
+            if hasattr(self.master, 'abrir_modal_editar_producto'):
+                self.master.producto_seleccionado = self.producto
+                self.master.abrir_modal_editar_producto()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al abrir editor: {str(e)}")
+    
+    def cerrar_modal(self):
+        """Cerrar el modal de forma segura"""
+        try:
+            self.grab_release()
+        except:
+            pass
+        finally:
+            self.destroy()
+    
+    def configurar_modal(self):
+        """Configurar el modal de forma segura después de que esté visible"""
+        try:
+            self.center_window()
+            if self.winfo_exists():
+                self.grab_set()
+        except Exception as e:
+            print(f"Error al configurar modal: {str(e)}")
+    
+    def center_window(self):
+        """Centrar la ventana en la pantalla"""
+        try:
+            self.update_idletasks()
+            width = self.winfo_width()
+            height = self.winfo_height()
+            x = (self.winfo_screenwidth() // 2) - (width // 2)
+            y = (self.winfo_screenheight() // 2) - (height // 2)
+            self.geometry(f"{width}x{height}+{x}+{y}")
+        except Exception as e:
+            print(f"Error al centrar ventana: {str(e)}")
 
 # Función para testing independiente
 if __name__ == "__main__":
