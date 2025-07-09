@@ -12,7 +12,18 @@ class GestionNotificaciones(ctk.CTkFrame):
     def __init__(self, parent):
         try:
             super().__init__(parent)
-            self.pack(fill="both", expand=True, padx=20, pady=20)
+            
+            # Configurar layout responsivo con grid
+            self.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
+            
+            # Configurar grid del parent para que se expanda
+            if hasattr(parent, 'grid_rowconfigure'):
+                parent.grid_rowconfigure(0, weight=1)
+                parent.grid_columnconfigure(0, weight=1)
+            
+            # Configurar grid interno
+            self.grid_columnconfigure(0, weight=1)
+            self.grid_rowconfigure(2, weight=1)  # La tabla es la que se expande
             
             # Configurar tema
             self.configure(fg_color="#F5F5F5")
@@ -26,7 +37,7 @@ class GestionNotificaciones(ctk.CTkFrame):
             
             # Frame superior
             top_frame = ctk.CTkFrame(self, fg_color="transparent")
-            top_frame.pack(fill="x", pady=(0, 20))
+            top_frame.grid(row=0, column=0, sticky="ew", padx=0, pady=(0, 20))
             
             # Título con icono
             title_frame = ctk.CTkFrame(top_frame, fg_color="transparent")
@@ -48,9 +59,10 @@ class GestionNotificaciones(ctk.CTkFrame):
                 text_color="#2E6B5C"
             ).pack(side="left")
             
-            # Frame para búsqueda y filtros
+            # Frame para búsqueda y filtros (usando grid responsivo)
             search_frame = ctk.CTkFrame(self, fg_color="#FFFFFF", corner_radius=10)
-            search_frame.pack(fill="x", pady=(0, 20))
+            search_frame.grid(row=1, column=0, sticky="ew", padx=0, pady=(0, 20))
+            search_frame.grid_columnconfigure(1, weight=1)  # Columna del entry se expande
             
             # Búsqueda
             search_label = ctk.CTkLabel(
@@ -58,19 +70,18 @@ class GestionNotificaciones(ctk.CTkFrame):
                 text="🔍",
                 font=("Quicksand", 16)
             )
-            search_label.pack(side="left", padx=(15, 5))
+            search_label.grid(row=0, column=0, padx=(15, 5), pady=10)
             
             self.search_var = ctk.StringVar()
             self.search_var.trace("w", self.filtrar_tabla)
             search_entry = ctk.CTkEntry(
                 search_frame,
                 textvariable=self.search_var,
-                width=300,
                 placeholder_text="Buscar por contenido...",
                 border_width=0,
                 fg_color="#F5F5F5"
             )
-            search_entry.pack(side="left", padx=5, pady=10)
+            search_entry.grid(row=0, column=1, sticky="ew", padx=5, pady=10)
             
             # Separador
             ctk.CTkFrame(
@@ -78,20 +89,20 @@ class GestionNotificaciones(ctk.CTkFrame):
                 width=1,
                 height=30,
                 fg_color="#E0E0E0"
-            ).pack(side="left", padx=15)
+            ).grid(row=0, column=2, padx=15, pady=10)
             
             # Filtro de estado
             ctk.CTkLabel(
                 search_frame,
                 text="Estado:",
                 font=("Quicksand", 12)
-            ).pack(side="left", padx=5)
+            ).grid(row=0, column=3, padx=5, pady=10)
             
             self.estado_var = ctk.StringVar(value="Todos")
             self.estado_var.trace("w", self.filtrar_tabla)
             estado_menu = ctk.CTkOptionMenu(
                 search_frame,
-                values=["Todos", "Pendiente", "Leído", "Enviado"],
+                values=["Todos", "No leído", "Leído", "Enviado"],
                 variable=self.estado_var,
                 width=120,
                 fg_color="#2E6B5C",
@@ -101,23 +112,12 @@ class GestionNotificaciones(ctk.CTkFrame):
                 dropdown_hover_color="#F5F5F5",
                 dropdown_text_color="#2E6B5C"
             )
-            estado_menu.pack(side="left", padx=5, pady=10)
+            estado_menu.grid(row=0, column=4, padx=5, pady=10)
             
             # Botones de acción
             action_frame = ctk.CTkFrame(search_frame, fg_color="transparent")
-            action_frame.pack(side="right", padx=15)
-            
-            # Botón enviar notificación
-            ctk.CTkButton(
-                action_frame,
-                text="📤 Enviar Notificación",
-                command=self.enviar_notificacion,
-                fg_color="#FF6B35",
-                hover_color="#E55A2B",
-                width=160,
-                font=("Quicksand", 12, "bold")
-            ).pack(side="left", padx=5)
-            
+            action_frame.grid(row=0, column=5, padx=15, pady=10)
+                 
             # Botón nueva notificación
             ctk.CTkButton(
                 action_frame,
@@ -131,34 +131,13 @@ class GestionNotificaciones(ctk.CTkFrame):
             # Botón refrescar
             ctk.CTkButton(
                 action_frame,
-                text="🔄 Refrescar",
-                command=self.cargar_datos_desde_api,
+                text="🔄 Refrescar Estado",
+                command=self.refrescar_estado_completo,
                 fg_color="#367832",
                 hover_color="#2D5A27",
-                width=120
+                width=140,
+                font=("Quicksand", 12, "bold")
             ).pack(side="left", padx=5)
-            
-            # Contador de notificaciones y estadísticas
-            stats_frame = ctk.CTkFrame(action_frame, fg_color="#E8F5E8", corner_radius=8)
-            stats_frame.pack(side="left", padx=15)
-            
-            self.contador_label = ctk.CTkLabel(
-                stats_frame,
-                text="Total: 0 | No leídas: 0",
-                font=("Quicksand", 12, "bold"),
-                text_color="#2E6B5C"
-            )
-            self.contador_label.pack(padx=10, pady=5)
-            
-            # Botón estadísticas
-            ctk.CTkButton(
-                action_frame,
-                text="📊 Estadísticas",
-                command=self.mostrar_estadisticas,
-                fg_color="#17a2b8",
-                hover_color="#138496",
-                width=120
-            ).pack(side="right", padx=5)
             
             # Tabla con estilo
             style = ttk.Style()
@@ -184,7 +163,9 @@ class GestionNotificaciones(ctk.CTkFrame):
             
             # Frame para tabla
             table_frame = ctk.CTkFrame(self, fg_color="#FFFFFF", corner_radius=10)
-            table_frame.pack(fill="both", expand=True)
+            table_frame.grid(row=2, column=0, sticky="nsew", padx=0, pady=(0, 20))
+            table_frame.grid_columnconfigure(0, weight=1)
+            table_frame.grid_rowconfigure(0, weight=1)
             
             # Tabla
             columns = (
@@ -208,13 +189,8 @@ class GestionNotificaciones(ctk.CTkFrame):
             self.tabla.heading("fecha", text="Fecha")
             self.tabla.heading("usuario", text="Usuario")
             
-            # Configurar anchos
-            self.tabla.column("id", width=50, anchor="center")
-            self.tabla.column("tipo", width=100, anchor="center")
-            self.tabla.column("contenido", width=300)
-            self.tabla.column("estado", width=100, anchor="center")
-            self.tabla.column("fecha", width=150, anchor="center")
-            self.tabla.column("usuario", width=150, anchor="center")
+            # Configurar anchos responsivos
+            self.tabla.bind("<Configure>", self._on_table_configure)
             
             # Scrollbar personalizado
             scrollbar = ttk.Scrollbar(
@@ -224,9 +200,9 @@ class GestionNotificaciones(ctk.CTkFrame):
             )
             self.tabla.configure(yscrollcommand=scrollbar.set)
             
-            # Empaquetar tabla y scrollbar
-            self.tabla.pack(side="left", fill="both", expand=True, padx=10, pady=10)
-            scrollbar.pack(side="right", fill="y", pady=10)
+            # Empaquetar tabla y scrollbar usando grid
+            self.tabla.grid(row=0, column=0, sticky="nsew", padx=(10, 0), pady=10)
+            scrollbar.grid(row=0, column=1, sticky="ns", padx=(0, 10), pady=10)
             
             # Cargar datos desde la API
             self.cargar_datos_desde_api()
@@ -240,6 +216,10 @@ class GestionNotificaciones(ctk.CTkFrame):
             # Bind tecla Delete
             self.tabla.bind("<Delete>", self.eliminar_notificacion)
             
+            # Bind teclas para marcar estado
+            self.tabla.bind("<F1>", self.marcar_como_leida)  # F1 para marcar como leída
+            self.tabla.bind("<F2>", self.marcar_como_no_leida)  # F2 para marcar como no leída
+            
             # Bind clic derecho para menú contextual
             self.tabla.bind("<Button-3>", self.mostrar_menu_contextual)
             
@@ -248,6 +228,37 @@ class GestionNotificaciones(ctk.CTkFrame):
             
         except Exception as e:
             messagebox.showerror("Error", f"Error al inicializar: {str(e)}")
+    
+    def _on_table_configure(self, event=None):
+        """Ajustar el ancho de las columnas de la tabla de forma responsiva."""
+        try:
+            width = self.tabla.winfo_width() - 20  # Ancho total menos un pequeño margen
+            if width <= 1:
+                return
+
+            # Definir proporciones para cada columna
+            proportions = {
+                "id": 0.05,        # 5% - ID corto
+                "tipo": 0.10,      # 10% - Tipo
+                "contenido": 0.40, # 40% - Contenido (más espacio)
+                "estado": 0.15,    # 15% - Estado
+                "fecha": 0.15,     # 15% - Fecha
+                "usuario": 0.15    # 15% - Usuario
+            }
+
+            for col, prop in proportions.items():
+                col_width = int(width * prop)
+                self.tabla.column(col, width=col_width)
+                
+                # Configurar anclaje según el tipo de columna
+                if col in ["id", "tipo", "estado"]:
+                    self.tabla.column(col, anchor="center")
+                elif col in ["fecha", "usuario"]:
+                    self.tabla.column(col, anchor="center")
+                else:
+                    self.tabla.column(col, anchor="w")
+        except Exception as e:
+            print(f"Error configurando tabla responsiva: {e}")
             
     def cargar_datos_desde_api(self):
         """Cargar notificaciones desde la API"""
@@ -261,6 +272,12 @@ class GestionNotificaciones(ctk.CTkFrame):
             if result['success']:
                 self.notificaciones = result['notifications']
                 print(f"✅ {len(self.notificaciones)} notificaciones cargadas correctamente")
+                
+                # Debug: Mostrar algunos ejemplos de notificaciones para verificar el estado
+                if self.notificaciones:
+                    print("🔍 DEBUG - Primeras 3 notificaciones:")
+                    for i, notif in enumerate(self.notificaciones[:3]):
+                        print(f"  #{i+1} ID: {notif.get('id')} | Estado: {notif.get('estado')} | Estado Backend: {notif.get('estado_backend')} | read_at: {notif.get('read_at')}")
             else:
                 messagebox.showerror("Error", f"Error al cargar notificaciones: {result['error']}")
                 # Usar datos vacíos si hay error
@@ -323,6 +340,9 @@ class GestionNotificaciones(ctk.CTkFrame):
                 if len(contenido) > 80:
                     contenido = contenido[:77] + "..."
                 
+                # Formatear el estado con iconos visuales
+                estado_visual = self._format_estado_visual(notif["estado"])
+                
                 self.tabla.insert(
                     "",
                     "end",
@@ -330,16 +350,16 @@ class GestionNotificaciones(ctk.CTkFrame):
                         notif["id"],
                         notif["tipo"],
                         contenido,
-                        notif["estado"],
+                        estado_visual,
                         notif["fecha"],
                         notif["usuario"]
                     ),
                     tags=tags
                 )
                 
-            # Configurar colores de estado
-            self.tabla.tag_configure("leida", foreground="#757575")
-            self.tabla.tag_configure("no_leida", foreground="#2E6B5C", font=("Quicksand", 10, "bold"))
+            # Configurar colores de estado con mejor diferenciación visual
+            self.tabla.tag_configure("leida", foreground="#757575", background="#F8F9FA")
+            self.tabla.tag_configure("no_leida", foreground="#2E6B5C", font=("Quicksand", 10, "bold"), background="#E3F2FD")
             
             # Actualizar contador
             total = len(self.notificaciones)
@@ -355,7 +375,8 @@ class GestionNotificaciones(ctk.CTkFrame):
             if not hasattr(self, 'contador_label'):
                 return
             
-            texto = f"Total: {total} | No leídas: {no_leidas}"
+            leidas = total - no_leidas
+            texto = f"Total: {total} | ✅ Leídas: {leidas} | 🔵 No leídas: {no_leidas}"
             self.contador_label.configure(text=texto)
         except Exception as e:
             print(f"Error actualizando contador: {e}")
@@ -378,6 +399,15 @@ class GestionNotificaciones(ctk.CTkFrame):
         )
         self.menu_contextual.add_separator()
         self.menu_contextual.add_command(
+            label="✅ Marcar como Leída",
+            command=lambda: self.marcar_como_leida(None)
+        )
+        self.menu_contextual.add_command(
+            label="📋 Marcar como No Leída",
+            command=lambda: self.marcar_como_no_leida(None)
+        )
+        self.menu_contextual.add_separator()
+        self.menu_contextual.add_command(
             label="🗑️ Eliminar",
             command=lambda: self.eliminar_notificacion(None)
         )
@@ -395,6 +425,44 @@ class GestionNotificaciones(ctk.CTkFrame):
             if item:
                 self.tabla.selection_set(item)
                 self.tabla.focus(item)
+                
+                # Obtener estado actual de la notificación para personalizar el menú
+                item_data = self.tabla.item(item)
+                estado_actual = item_data["values"][3] if len(item_data["values"]) > 3 else ""
+                
+                # Limpiar menú contextual y recrearlo basado en el estado
+                self.menu_contextual.delete(0, 'end')
+                
+                # Agregar ver detalles
+                self.menu_contextual.add_command(
+                    label="👁️ Ver Detalles",
+                    command=lambda: self.ver_detalles(None)
+                )
+                self.menu_contextual.add_separator()
+                
+                # Opciones de estado basadas en el estado actual
+                if "✅ Leído" not in estado_actual:
+                    self.menu_contextual.add_command(
+                        label="✅ Marcar como Leída",
+                        command=lambda: self.marcar_como_leida(None)
+                    )
+                
+                if "🔵 No leído" not in estado_actual:
+                    self.menu_contextual.add_command(
+                        label="🔵 Marcar como No Leída",
+                        command=lambda: self.marcar_como_no_leida(None)
+                    )
+                
+                self.menu_contextual.add_separator()
+                self.menu_contextual.add_command(
+                    label="🗑️ Eliminar",
+                    command=lambda: self.eliminar_notificacion(None)
+                )
+                self.menu_contextual.add_separator()
+                self.menu_contextual.add_command(
+                    label="🔄 Refrescar",
+                    command=self.cargar_datos_desde_api
+                )
                 
                 # Mostrar menú
                 self.menu_contextual.post(event.x_root, event.y_root)
@@ -430,6 +498,9 @@ class GestionNotificaciones(ctk.CTkFrame):
                 # Configurar tags para el estado
                 tags = ("leida" if notif["estado"] == "Leído" else "no_leida",)
                 
+                # Formatear el estado con iconos visuales
+                estado_visual = self._format_estado_visual(notif["estado"])
+                
                 # Insertar fila
                 self.tabla.insert(
                     "",
@@ -438,7 +509,7 @@ class GestionNotificaciones(ctk.CTkFrame):
                         notif["id"],
                         notif["tipo"],
                         notif["contenido"],
-                        notif["estado"],
+                        estado_visual,
                         notif["fecha"],
                         notif["usuario"]
                     ),
@@ -573,6 +644,171 @@ class GestionNotificaciones(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror("Error", f"Error al mostrar detalles: {str(e)}")
 
+    def _format_estado_visual(self, estado):
+        """Formatear estado con iconos visuales"""
+        if estado == "Leído":
+            return "✅ Leído"
+        elif estado == "No leído":
+            return "🔵 No leído"
+        elif estado == "Enviado":
+            return "📤 Enviado"
+        elif estado == "Pendiente":
+            return "⏳ Pendiente"
+        else:
+            return f"❓ {estado}"
+    
+    def marcar_como_leida(self, event=None):
+        """Marcar notificación seleccionada como leída"""
+        try:
+            # Obtener selección
+            seleccion = self.tabla.selection()
+            if not seleccion:
+                messagebox.showwarning("Advertencia", "Por favor seleccione una notificación")
+                return
+                
+            # Obtener notificación seleccionada
+            item = self.tabla.item(seleccion[0])
+            notif_id = item["values"][0]
+            estado_actual = item["values"][3]
+            
+            # Verificar si ya está leída
+            if "✅ Leído" in estado_actual:
+                messagebox.showinfo("Información", "La notificación ya está marcada como leída")
+                return
+            
+            # Mostrar indicador de carga
+            self.mostrar_loading(True)
+            
+            # Marcar como leída a través de la API
+            result = NotificationsService.mark_notification_as_read(notif_id)
+            
+            if result['success']:
+                # Mostrar mensaje de éxito sin modal
+                print(f"✅ Notificación #{notif_id} marcada como leída")
+                
+                # Actualizar estado local inmediatamente para mejor UX
+                self.actualizar_estado_local(notif_id, "Leído")
+                
+                # Recargar datos desde el servidor para sincronizar
+                self.cargar_datos_desde_api()
+            else:
+                messagebox.showerror("Error", f"Error al marcar como leída: {result['error']}")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al marcar notificación como leída: {str(e)}")
+        finally:
+            self.mostrar_loading(False)
+    
+    def marcar_como_no_leida(self, event=None):
+        """Marcar notificación seleccionada como no leída"""
+        try:
+            # Obtener selección
+            seleccion = self.tabla.selection()
+            if not seleccion:
+                messagebox.showwarning("Advertencia", "Por favor seleccione una notificación")
+                return
+                
+            # Obtener notificación seleccionada
+            item = self.tabla.item(seleccion[0])
+            notif_id = item["values"][0]
+            estado_actual = item["values"][3]
+            
+            # Verificar si ya está no leída
+            if "🔵 No leído" in estado_actual:
+                messagebox.showinfo("Información", "La notificación ya está marcada como no leída")
+                return
+            
+            # Mostrar indicador de carga
+            self.mostrar_loading(True)
+            
+            # Marcar como no leída a través de la API
+            result = NotificationsService.mark_notification_as_unread(notif_id)
+            
+            if result['success']:
+                # Mostrar mensaje de éxito sin modal
+                print(f"🔵 Notificación #{notif_id} marcada como no leída")
+                
+                # Actualizar estado local inmediatamente para mejor UX
+                self.actualizar_estado_local(notif_id, "No leído")
+                
+                # Recargar datos desde el servidor para sincronizar
+                self.cargar_datos_desde_api()
+            else:
+                messagebox.showerror("Error", f"Error al marcar como no leída: {result['error']}")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al marcar notificación como no leída: {str(e)}")
+        finally:
+            self.mostrar_loading(False)
+
+    def actualizar_estado_local(self, notif_id, nuevo_estado):
+        """Actualizar estado de una notificación en la lista local"""
+        try:
+            for notif in self.notificaciones:
+                if notif['id'] == notif_id:
+                    notif['estado'] = nuevo_estado
+                    break
+            
+            # Actualizar la tabla sin recargar desde API
+            self.cargar_datos()
+            
+        except Exception as e:
+            print(f"Error actualizando estado local: {e}")
+
+    def refrescar_estado_completo(self):
+        """Refrescar datos y mostrar información detallada del estado"""
+        try:
+            print("🔄 Iniciando refrescado completo del estado...")
+            self.cargar_datos_desde_api()
+            
+            # Mostrar estadísticas después del refrescado
+            total = len(self.notificaciones)
+            leidas = len([n for n in self.notificaciones if n["estado"] == "Leído"])
+            no_leidas = total - leidas
+            
+            print(f"📊 ESTADÍSTICAS ACTUALES:")
+            print(f"   Total: {total}")
+            print(f"   ✅ Leídas: {leidas}")
+            print(f"   🔵 No leídas: {no_leidas}")
+            
+            # Mostrar toast informativo
+            self.mostrar_toast(f"✅ Estado actualizado: {total} notificaciones ({no_leidas} no leídas)")
+            
+        except Exception as e:
+            print(f"❌ Error al refrescar estado: {e}")
+            messagebox.showerror("Error", f"Error al refrescar estado: {str(e)}")
+    
+    def mostrar_toast(self, mensaje):
+        """Mostrar mensaje toast informativo"""
+        try:
+            # Crear ventana toast
+            toast = ctk.CTkToplevel(self)
+            toast.title("")
+            toast.geometry("400x80")
+            toast.attributes("-topmost", True)
+            toast.configure(fg_color="#2E6B5C")
+            
+            # Posicionar en la esquina superior derecha
+            toast.update_idletasks()
+            x = toast.winfo_screenwidth() - 420
+            y = 50
+            toast.geometry(f"400x80+{x}+{y}")
+            
+            # Contenido del toast
+            ctk.CTkLabel(
+                toast,
+                text=mensaje,
+                font=("Quicksand", 12, "bold"),
+                text_color="white",
+                wraplength=380
+            ).pack(expand=True, fill="both", padx=10, pady=10)
+            
+            # Auto-cerrar después de 3 segundos
+            toast.after(3000, toast.destroy)
+            
+        except Exception as e:
+            print(f"Error mostrando toast: {e}")
+
 class NotificacionDialog:
     def __init__(self, parent, title, usuarios):
         try:
@@ -582,8 +818,9 @@ class NotificacionDialog:
             # Crear ventana de diálogo
             self.dialog = ctk.CTkToplevel(parent)
             self.dialog.title(title)
-            self.dialog.geometry("650x800")  # Aumentamos la altura
-            self.dialog.resizable(False, False)
+            self.dialog.geometry("650x700")  # Altura ajustada
+            self.dialog.minsize(500, 600)  # Tamaño mínimo para responsividad
+            self.dialog.resizable(True, True)  # Hacer redimensionable
             
             # Hacer modal
             self.dialog.transient(parent)
@@ -597,13 +834,19 @@ class NotificacionDialog:
             y = (self.dialog.winfo_screenheight() // 2) - (height // 2)
             self.dialog.geometry(f"{width}x{height}+{x}+{y}")
             
-            # Frame principal con sombra
+            # Configurar grid responsivo para el diálogo
+            self.dialog.grid_columnconfigure(0, weight=1)
+            self.dialog.grid_rowconfigure(0, weight=1)
+            
+            # Frame principal con sombra (usando grid)
             main_frame = ctk.CTkFrame(self.dialog, fg_color="#FFFFFF", corner_radius=15)
-            main_frame.pack(fill="both", expand=True, padx=30, pady=30)
+            main_frame.grid(row=0, column=0, sticky="nsew", padx=30, pady=30)
+            main_frame.grid_columnconfigure(0, weight=1)
+            main_frame.grid_rowconfigure(1, weight=1)  # El frame del formulario se expande
             
             # Título con icono
             title_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-            title_frame.pack(fill="x", pady=(20, 20))
+            title_frame.grid(row=0, column=0, sticky="ew", pady=(20, 20))
             
             ctk.CTkLabel(
                 title_frame,
@@ -615,10 +858,10 @@ class NotificacionDialog:
             # Frame scrollable para el formulario
             self.form_scroll_frame = ctk.CTkScrollableFrame(
                 main_frame, 
-                fg_color="transparent",
-                height=400  # Altura fija para permitir scroll
+                fg_color="transparent"
             )
-            self.form_scroll_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+            self.form_scroll_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20))
+            self.form_scroll_frame.grid_columnconfigure(0, weight=1)
             
             # Tipo de envío
             self.crear_campo_tipo_envio(self.form_scroll_frame)
@@ -640,7 +883,9 @@ class NotificacionDialog:
             
             # Frame para botones (SIEMPRE VISIBLE en la parte inferior)
             button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-            button_frame.pack(side="bottom", fill="x", pady=(10, 20))
+            button_frame.grid(row=2, column=0, sticky="ew", pady=(10, 20))
+            button_frame.grid_columnconfigure(0, weight=1)
+            button_frame.grid_columnconfigure(1, weight=1)
             
             # Botón Enviar
             guardar_btn = ctk.CTkButton(
@@ -654,7 +899,7 @@ class NotificacionDialog:
                 font=("Quicksand", 14, "bold"),
                 corner_radius=10
             )
-            guardar_btn.pack(side="left", padx=10)
+            guardar_btn.grid(row=0, column=0, padx=10, sticky="e")
             
             # Botón Cancelar
             cancelar_btn = ctk.CTkButton(
@@ -668,7 +913,7 @@ class NotificacionDialog:
                 font=("Quicksand", 14, "bold"),
                 corner_radius=10
             )
-            cancelar_btn.pack(side="right", padx=10)
+            cancelar_btn.grid(row=0, column=1, padx=10, sticky="w")
             
             # Esperar a que se cierre el diálogo
             parent.wait_window(self.dialog)
@@ -680,7 +925,8 @@ class NotificacionDialog:
     def crear_campo_tipo_envio(self, parent):
         """Crear campo para seleccionar tipo de envío"""
         field_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        field_frame.pack(fill="x", pady=(0, 20))
+        field_frame.grid(row=0, column=0, sticky="ew", pady=(0, 20))
+        field_frame.grid_columnconfigure(0, weight=1)
         
         ctk.CTkLabel(
             field_frame,
@@ -718,7 +964,8 @@ class NotificacionDialog:
     def crear_campo_asunto(self, parent):
         """Crear campo para asunto"""
         field_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        field_frame.pack(fill="x", pady=(0, 20))
+        field_frame.grid(row=1, column=0, sticky="ew", pady=(0, 20))
+        field_frame.grid_columnconfigure(0, weight=1)
         
         ctk.CTkLabel(
             field_frame,
@@ -729,19 +976,19 @@ class NotificacionDialog:
         
         self.asunto_entry = ctk.CTkEntry(
             field_frame,
-            width=400,
-            height=40,
             placeholder_text="Ingrese el asunto de la notificación...",
             border_width=0,
             fg_color="#F5F5F5",
-            font=("Quicksand", 12)
+            font=("Quicksand", 12),
+            height=40
         )
-        self.asunto_entry.pack(fill="x")
+        self.asunto_entry.pack(fill="x", expand=True)
     
     def crear_campo_contenido(self, parent):
         """Crear campo para contenido"""
         field_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        field_frame.pack(fill="x", pady=(0, 20))
+        field_frame.grid(row=2, column=0, sticky="ew", pady=(0, 20))
+        field_frame.grid_columnconfigure(0, weight=1)
         
         ctk.CTkLabel(
             field_frame,
@@ -752,26 +999,26 @@ class NotificacionDialog:
         
         self.contenido_text = ctk.CTkTextbox(
             field_frame,
-            width=400,
             height=120,
             border_width=0,
             fg_color="#F5F5F5",
             font=("Quicksand", 12)
         )
-        self.contenido_text.pack(fill="x")
+        self.contenido_text.pack(fill="x", expand=True)
         self.contenido_text.insert("1.0", "Escriba aquí el contenido de la notificación...")
     
     def crear_campo_usuario(self, parent):
         """Crear campo para seleccionar usuario"""
         self.usuario_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        # NO hacer pack aquí, se controlará desde on_tipo_envio_change
+        self.usuario_frame.grid_columnconfigure(0, weight=1)
+        # NO hacer grid aquí, se controlará desde on_tipo_envio_change
         
         ctk.CTkLabel(
             self.usuario_frame,
             text="👤 Seleccionar Usuario",
             font=("Quicksand", 14, "bold"),
             text_color="#2E6B5C"
-        ).pack(anchor="w", pady=(0, 5))
+        ).grid(row=0, column=0, sticky="w", pady=(0, 5))
         
         # Combo box para usuarios
         usuario_values = ["Seleccionar usuario..."]
@@ -785,17 +1032,17 @@ class NotificacionDialog:
             self.usuario_frame,
             values=usuario_values,
             variable=self.usuario_var,
-            width=400,
-            height=40,
+            dynamic_resizing=False,
             fg_color="#2E6B5C",
             button_color="#1D4A3C",
             button_hover_color="#153A2C",
             dropdown_fg_color="#FFFFFF",
             dropdown_hover_color="#F5F5F5",
             dropdown_text_color="#2E6B5C",
-            font=("Quicksand", 12)
+            font=("Quicksand", 12),
+            height=40
         )
-        self.usuario_combo.pack(fill="x")
+        self.usuario_combo.grid(row=1, column=0, sticky="ew")
         
         # Contador de usuarios
         if self.usuarios:
@@ -804,7 +1051,7 @@ class NotificacionDialog:
                 text=f"👥 {len(self.usuarios)} usuarios disponibles",
                 font=("Quicksand", 10),
                 text_color="#757575"
-            ).pack(anchor="w", pady=(5, 0))
+            ).grid(row=2, column=0, sticky="w", pady=(5, 0))
         
         # Guardar referencia al parent para reposicionamiento
         self.usuario_parent = parent
@@ -812,7 +1059,8 @@ class NotificacionDialog:
     def crear_campo_prioridad(self, parent):
         """Crear campo para prioridad"""
         self.prioridad_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        self.prioridad_frame.pack(fill="x", pady=(0, 20))
+        self.prioridad_frame.grid(row=4, column=0, sticky="ew", pady=(0, 20))
+        self.prioridad_frame.grid_columnconfigure(0, weight=1)
         
         ctk.CTkLabel(
             self.prioridad_frame,
@@ -842,10 +1090,10 @@ class NotificacionDialog:
         """Manejar cambio en tipo de envío"""
         if self.tipo_envio_var.get() == "usuario_especifico":
             # Mostrar campo de usuario
-            self.usuario_frame.pack(fill="x", pady=(0, 20), before=self.prioridad_frame)
+            self.usuario_frame.grid(row=3, column=0, sticky="ew", pady=(0, 20))
         else:
             # Ocultar campo de usuario
-            self.usuario_frame.pack_forget()
+            self.usuario_frame.grid_forget()
     
     def enviar(self):
         try:
@@ -907,7 +1155,8 @@ class DetallesNotificacionDialog:
             self.dialog = ctk.CTkToplevel(parent)
             self.dialog.title(f"Detalles de la Notificación #{notif['id']}")
             self.dialog.geometry("600x500")
-            self.dialog.resizable(False, False)
+            self.dialog.minsize(400, 400)  # Tamaño mínimo
+            self.dialog.resizable(True, True)  # Hacer redimensionable
             
             # Hacer modal
             self.dialog.transient(parent)
@@ -1104,7 +1353,8 @@ class EstadisticasDialog:
             self.dialog = ctk.CTkToplevel(parent)
             self.dialog.title("📊 Estadísticas de Notificaciones")
             self.dialog.geometry("700x600")
-            self.dialog.resizable(False, False)
+            self.dialog.minsize(500, 500)  # Tamaño mínimo
+            self.dialog.resizable(True, True)  # Hacer redimensionable
             
             # Hacer modal
             self.dialog.transient(parent)
@@ -1361,9 +1611,3 @@ class EstadisticasDialog:
             ).pack(side="right", padx=15, pady=8)
         
         ctk.CTkFrame(section_frame, height=10, fg_color="transparent").pack()
-
-if __name__ == "__main__":
-    app = ctk.CTk()
-    app.geometry("800x600")
-    GestionNotificaciones(app)
-    app.mainloop()

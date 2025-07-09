@@ -13,7 +13,7 @@ class NotificationsService:
     
     @staticmethod
     def get_all_notifications():
-        """Obtener todas las notificaciones del administrador"""
+        """Obtener todas las notificaciones del administrador con estado real de lectura"""
         try:
             response = APIHandler.make_request('get', NOTIFICATIONS_ENDPOINTS['list'])
             
@@ -24,24 +24,34 @@ class NotificationsService:
                 # Formatear notificaciones para la tabla
                 formatted_notifications = []
                 for notif in notifications:
-                    # Determinar estado basado en read_at
-                    estado = 'Leído' if notif.get('read_at') and notif.get('read_at') != 'null' else 'No leído'
+                    # Usar el estado que viene directamente del backend (basado en read_at)
+                    estado_backend = notif.get('estado', 'no_leida')  # 'leida' o 'no_leida'
+                    
+                    # Convertir a formato visual
+                    if estado_backend == 'leida':
+                        estado_visual = 'Leído'
+                    elif estado_backend == 'no_leida':
+                        estado_visual = 'No leído'
+                    else:
+                        estado_visual = 'Pendiente'
                     
                     # Extraer datos del mensaje
                     mensaje_data = notif.get('mensaje', {})
                     data_field = notif.get('data', {})
+                    usuario_data = notif.get('usuario', {})
                     
                     formatted_notifications.append({
                         'id': notif.get('id_notificacion'),
                         'tipo': data_field.get('tipo_mensaje') or mensaje_data.get('tipo', 'campanita'),
                         'contenido': data_field.get('contenido_mensaje') or mensaje_data.get('contenido', 'Sin contenido'),
                         'asunto': data_field.get('asunto') or mensaje_data.get('asunto', 'Sin asunto'),
-                        'estado': estado,
+                        'estado': estado_visual,  # Estado visual para la UI
+                        'estado_backend': estado_backend,  # Estado original del backend
                         'fecha': NotificationsService._format_date(notif.get('fecha_creacion')),
-                        'usuario': notif.get('usuario', {}).get('nombre', 'Usuario desconocido'),
-                        'usuario_id': notif.get('usuario', {}).get('id_usuario'),
+                        'usuario': usuario_data.get('nombre', 'Usuario desconocido'),
+                        'usuario_id': usuario_data.get('id_usuario'),
                         'prioridad': data_field.get('prioridad') or mensaje_data.get('prioridad', 'normal'),
-                        'read_at': notif.get('read_at'),
+                        'read_at': notif.get('read_at'),  # Timestamp de lectura
                         'type': notif.get('type', 'campanita'),
                         'data': data_field
                     })
@@ -269,8 +279,8 @@ class NotificationsService:
                 'estado': 'leida'
             }
             
-            # URL del endpoint para actualizar estado
-            url = f"{NOTIFICATIONS_ENDPOINTS['list']}/{notification_id}"
+            # URL del endpoint para actualizar estado (endpoint del usuario, no admin)
+            url = f"https://api.fresaterra.shop/api/v1/me/notificaciones/{notification_id}"
             
             response = APIHandler.make_request('patch', url, data)
             
@@ -300,8 +310,8 @@ class NotificationsService:
                 'estado': 'no_leida'
             }
             
-            # URL del endpoint para actualizar estado
-            url = f"{NOTIFICATIONS_ENDPOINTS['list']}/{notification_id}"
+            # URL del endpoint para actualizar estado (endpoint del usuario, no admin)
+            url = f"https://api.fresaterra.shop/api/v1/me/notificaciones/{notification_id}"
             
             response = APIHandler.make_request('patch', url, data)
             
@@ -320,4 +330,35 @@ class NotificationsService:
             return {
                 'success': False,
                 'error': f'Error al marcar notificación como no leída: {str(e)}'
+            }
+    
+    @staticmethod
+    def verify_notification_status(notification_id):
+        """Verificar el estado actual de una notificación específica"""
+        try:
+            # Obtener todas las notificaciones y buscar la específica
+            result = NotificationsService.get_all_notifications()
+            
+            if result['success']:
+                for notif in result['notifications']:
+                    if notif['id'] == notification_id:
+                        return {
+                            'success': True,
+                            'notification': notif,
+                            'current_status': notif['estado'],
+                            'backend_status': notif['estado_backend'],
+                            'read_at': notif['read_at']
+                        }
+                
+                return {
+                    'success': False,
+                    'error': f'Notificación {notification_id} no encontrada'
+                }
+            else:
+                return result
+                
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Error verificando estado: {str(e)}'
             }
