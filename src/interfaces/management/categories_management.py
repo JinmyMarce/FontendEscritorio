@@ -1150,7 +1150,7 @@ class ModalProductosCategoria(ctk.CTkToplevel):
         try:
             if isinstance(precio, str):
                 # Remover caracteres no numéricos excepto punto y coma
-                precio_limpio = precio.replace(',', '').replace('$', '').strip()
+                precio_limpio = precio.replace(',', '').replace('$', '').replace('S/.', '').strip()
                 return float(precio_limpio)
             elif isinstance(precio, (int, float)):
                 return float(precio)
@@ -1302,8 +1302,8 @@ class ModalProductosCategoria(ctk.CTkToplevel):
                 except (ValueError, TypeError):
                     precio_num = 0
                 
-                # Formatear precio
-                precio_formateado = f"${precio_num:,.0f}" if precio_num > 0 else "Sin precio"
+                # Formatear precio en soles peruanos
+                precio_formateado = f"S/. {precio_num:,.0f}" if precio_num > 0 else "Sin precio"
                 
                 # Acumular para estadísticas (sin stock, solo contar productos)
                 valor_total += precio_num
@@ -1335,8 +1335,8 @@ class ModalProductosCategoria(ctk.CTkToplevel):
                 # Estadísticas sin stock (la API no incluye stock)
                 precio_promedio = valor_total / total_productos if total_productos > 0 else 0
                 stats_text = (f"📊 Total: {total_productos} productos | "
-                            f"� Precio promedio: ${precio_promedio:,.0f} | "
-                            f"🏷️ Valor total catálogo: ${valor_total:,.0f}")
+                            f"💰 Precio promedio: S/. {precio_promedio:,.0f} | "
+                            f"🏷️ Valor total catálogo: S/. {valor_total:,.0f}")
             
             self.stats_label.configure(text=stats_text)
             
