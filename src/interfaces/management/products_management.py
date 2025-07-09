@@ -9,6 +9,52 @@ from src.core.config import INVENTORY_MANAGEMENT_ENDPOINTS
 from src.shared.utils import APIHandler, SessionManager
 
 class ProductsSection(ctk.CTkFrame):
+    def on_tabla_right_click(self, event):
+        """Mostrar menú contextual para cambiar estado solo en la columna de estado"""
+        import tkinter as tk
+        try:
+            item = self.tabla.identify_row(event.y)
+            column = self.tabla.identify_column(event.x)
+            self.ocultar_menu_estado()
+            if item and column == '#6':
+                valores = self.tabla.item(item, 'values')
+                if not valores:
+                    return
+                producto_id = valores[0]
+                estado_actual = valores[5]
+                # Buscar el producto completo
+                producto_completo = None
+                for producto in self.productos_filtrados:
+                    if str(producto.get('id_producto')) == str(producto_id):
+                        producto_completo = producto
+                        break
+                if not producto_completo:
+                    return
+                # Crear menú contextual
+                self.menu_estado = tk.Menu(self, tearoff=0)
+                self.menu_estado.add_command(
+                    label="Activo",
+                    command=lambda: self.cambiar_estado_producto(producto_completo, "Activo")
+                )
+                self.menu_estado.add_command(
+                    label="Inactivo",
+                    command=lambda: self.cambiar_estado_producto(producto_completo, "Inactivo")
+                )
+                # Mostrar menú contextual en la posición del mouse
+                self.menu_estado.tk_popup(event.x_root, event.y_root)
+                # Registrar evento global para ocultar el menú si se hace click fuera
+                self.bind_all('<Button-1>', self.on_global_click_menu_estado, add='+')
+        except Exception as e:
+            print(f"Error en on_tabla_right_click: {str(e)}")
+
+    def ocultar_menu_estado(self):
+        if self.menu_estado:
+            self.menu_estado.unpost()
+            self.menu_estado = None
+
+    def on_global_click_menu_estado(self, event):
+        self.ocultar_menu_estado()
+        self.unbind_all('<Button-1>')
     """Sección dedicada a la gestión de productos dentro del módulo de inventario"""
     
     def __init__(self, parent):
@@ -176,7 +222,7 @@ class ProductsSection(ctk.CTkFrame):
         self.tabla.column("id", width=60, minwidth=50, anchor="center")
         self.tabla.column("nombre", width=180, minwidth=150, anchor="w")
         self.tabla.column("descripcion", width=220, minwidth=200, anchor="w")
-        self.tabla.column("categoria", width=140, minwidth=120, anchor="w")
+        self.tabla.column("categoria", width=140, minwidth=120, anchor="center")
         self.tabla.column("precio", width=100, minwidth=80, anchor="center")
         self.tabla.column("estado", width=100, minwidth=80, anchor="center")
         self.tabla.column("peso", width=120, minwidth=100, anchor="center")
@@ -202,6 +248,10 @@ class ProductsSection(ctk.CTkFrame):
         self.tabla.bind('<Button-1>', self.on_tabla_click)
         self.tabla.bind('<Motion>', self.on_tabla_motion)
         self.tabla.bind('<Motion>', self.on_tabla_motion)
+        self.tabla.bind('<Button-3>', self.on_tabla_right_click)
+
+        # Menú contextual para estado
+        self.menu_estado = None
             
     def cargar_productos(self):
         """Cargar productos desde la API"""
@@ -835,77 +885,7 @@ class ProductsSection(ctk.CTkFrame):
         except Exception as e:
             print(f"Error en on_tabla_motion: {str(e)}")
 
-    def mostrar_estado_combobox(self, item, event):
-        """Mostrar combobox para cambiar el estado del producto"""
-        try:
-            print(f"Iniciando mostrar_estado_combobox para item: {item}")  # Debug
-            
-            # Obtener información del item
-            valores = self.tabla.item(item, 'values')
-            if not valores:
-                print("No se encontraron valores para el item")  # Debug
-                return
-                
-            producto_id = valores[0]
-            estado_actual = valores[5]  # Columna de estado
-            
-            print(f"Producto ID: {producto_id}, Estado actual: {estado_actual}")  # Debug
-            
-            # Buscar el producto completo
-            producto_completo = None
-            for producto in self.productos_filtrados:
-                if str(producto.get('id_producto')) == str(producto_id):
-                    producto_completo = producto
-                    break
-                    
-            if not producto_completo:
-                print("No se encontró el producto completo")  # Debug
-                return
-            
-            # Obtener posición y tamaño de la celda
-            bbox = self.tabla.bbox(item, '#6')
-            if not bbox:
-                print("No se pudo obtener bbox de la celda")  # Debug
-                return
-                
-            x, y, width, height = bbox
-            print(f"Posición del combobox - X: {x}, Y: {y}, Width: {width}, Height: {height}")  # Debug
-            
-            # Determinar estado actual normalizado (remover emojis)
-            if "Activo" in estado_actual:
-                estado_normalizado = "Activo"
-            elif "Inactivo" in estado_actual:
-                estado_normalizado = "Inactivo"
-            else:
-                estado_normalizado = "Activo"  # Por defecto
-            
-            print(f"Estado normalizado: {estado_normalizado}")  # Debug
-            
-            # Crear combobox
-            self.estado_combobox = ctk.CTkOptionMenu(
-                self.tabla_container,
-                values=["Activo", "Inactivo"],
-                command=lambda valor: self.cambiar_estado_producto(producto_completo, valor),
-                font=("Quicksand", 10),
-                width=max(width-5, 80),  # Asegurar un ancho mínimo
-                height=max(height-2, 25),  # Asegurar una altura mínima
-                fg_color="#4A934A",
-                button_color="#367832"
-            )
-            # Establecer valor actual
-            self.estado_combobox.set(estado_normalizado)
-            # Posicionar combobox sobre la celda
-            self.estado_combobox.place(x=x+2, y=y+1)
-            # Guardar referencia del item
-            self.estado_item_seleccionado = item
-            # Hacer foco en el combobox y cerrar al perder foco
-            self.estado_combobox.focus_set()
-            self.estado_combobox.bind('<FocusOut>', lambda e: self.ocultar_estado_combobox())
-            
-        except Exception as e:
-            print(f"Error en mostrar_estado_combobox: {str(e)}")
-            import traceback
-            traceback.print_exc()  # Para debug completo
+    # El combobox de estado ha sido reemplazado por un menú contextual (click derecho)
 
     def ocultar_estado_combobox(self):
         """Ocultar el combobox de estado"""
