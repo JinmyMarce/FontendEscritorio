@@ -198,76 +198,83 @@ class StockManagementSection(ctk.CTkFrame):
         self.stats_label.grid(row=0, column=0, padx=20, pady=10)
             
     def cargar_inventario(self):
-        """Cargar inventario desde la API"""
+        """Cargar inventario desde la API y fusionar con datos de productos para obtener info adicional (imagen, peso, etc.)"""
         try:
             token = SessionManager.get_token()
             headers = {'Authorization': f'Bearer {token}'} if token else {}
-            
-            # Usar el endpoint de productos que incluye información de stock
-            url = INVENTORY_MANAGEMENT_ENDPOINTS['products']['list']
-            response = APIHandler.make_request('GET', url, headers=headers)
-            
-            if response['status_code'] == 200:
-                self.procesar_respuesta_inventario(response['data'])
+
+            # Obtener inventario (stock, categoría, etc.)
+            url_inventario = INVENTORY_MANAGEMENT_ENDPOINTS['inventory']['products_list']
+            response_inv = APIHandler.make_request('GET', url_inventario, headers=headers)
+
+            # Obtener productos (imagen, peso, descripción, etc.)
+            url_productos = INVENTORY_MANAGEMENT_ENDPOINTS['products']['list']
+            response_prod = APIHandler.make_request('GET', url_productos, headers=headers)
+
+            if response_inv['status_code'] == 200 and response_prod['status_code'] == 200:
+                # Crear diccionario de productos por id
+                productos_api = response_prod['data']['data'] if isinstance(response_prod['data'], dict) and 'data' in response_prod['data'] else response_prod['data']
+                productos_dict = {}
+                for prod in productos_api:
+                    prod_id = prod.get('id') or prod.get('id_producto')
+                    if prod_id is not None:
+                        productos_dict[prod_id] = prod
+
+                # Fusionar datos de inventario con datos de producto
+                self.procesar_respuesta_inventario(response_inv['data'], productos_dict)
             else:
-                print(f"Error al cargar inventario: {response.get('data', 'Error desconocido')}")
+                print(f"Error al cargar inventario/productos: {response_inv.get('data', 'Error inventario')} | {response_prod.get('data', 'Error productos')}")
                 self.cargar_inventario_ejemplo()
-                
         except Exception as e:
             print(f"Error al cargar inventario: {str(e)}")
             self.cargar_inventario_ejemplo()
-        
         self.actualizar_tabla()
 
-    def procesar_respuesta_inventario(self, api_data):
-        """Procesar la respuesta de la API para inventario"""
+    def procesar_respuesta_inventario(self, api_data, productos_dict=None):
+        """Procesar la respuesta de la API para inventario y fusionar con info de productos si está disponible"""
         try:
-            # La API devuelve: {"message": "...", "data": [productos...]}
             if isinstance(api_data, dict) and 'data' in api_data:
                 productos_api = api_data['data']
             elif isinstance(api_data, list):
                 productos_api = api_data
             else:
                 productos_api = []
-            
-            # Procesar productos para vista de stock
+
             self.productos_stock = []
             for producto in productos_api:
-                if isinstance(producto, dict):
-                    # Normalizar datos del producto para stock
-                    producto_stock = {
-                        "id": producto.get('id_producto', 'N/A'),
-                        "nombre": producto.get('nombre', 'Sin nombre'),
-                        "categoria": self.obtener_categoria_nombre(producto),
-                        "stock_actual": producto.get('stock', 0),
-                        "precio": self.convertir_precio(producto.get('precio', 0)),
-                        "estado": producto.get('estado', 'activo'),
-                        "descripcion": producto.get('descripcion', ''),
-                        "peso": producto.get('peso', ''),
-                        "imagen": producto.get('url_imagen', ''),
-                        "fecha_creacion": producto.get('fecha_creacion', ''),
-                        "categoria_info": producto.get('categoria', {})
-                    }
-                    
-                    # Calcular estado de stock
-                    producto_stock['estado_stock'] = self.calcular_estado_stock(producto_stock['stock_actual'])
-                    
-                    # Calcular valor del inventario
-                    producto_stock['valor_inventario'] = producto_stock['stock_actual'] * producto_stock['precio']
-                    
-                    self.productos_stock.append(producto_stock)
-            
+                if not isinstance(producto, dict):
+                    continue
+                prod_id = producto.get('id_producto') or producto.get('id')
+                prod_extra = productos_dict.get(prod_id) if productos_dict else {}
+                inventario = producto.get('inventario', {})
+                producto_stock = {
+                    "id": prod_id,
+                    "nombre": producto.get('nombre_producto', producto.get('nombre', 'Sin nombre')),
+                    "categoria": self.obtener_categoria_nombre(producto),
+                    "stock_actual": inventario.get('cantidad_disponible', 0),
+                    "precio": self.convertir_precio(producto.get('precio', 0)),
+                    "estado": producto.get('estado_producto', producto.get('estado', 'activo')),
+                    "descripcion": prod_extra.get('descripcion', ''),
+                    "peso": prod_extra.get('peso', ''),
+                    "imagen": prod_extra.get('url_imagen', ''),
+                    "fecha_creacion": prod_extra.get('fecha_creacion', ''),
+                    "categoria_info": producto.get('categoria', {})
+                }
+                producto_stock['estado_stock'] = self.calcular_estado_stock(producto_stock['stock_actual'])
+                producto_stock['valor_inventario'] = producto_stock['stock_actual'] * producto_stock['precio']
+                self.productos_stock.append(producto_stock)
             self.productos_filtrados = self.productos_stock.copy()
-            
         except Exception as e:
             print(f"Error al procesar respuesta de inventario: {str(e)}")
             self.cargar_inventario_ejemplo()
 
     def obtener_categoria_nombre(self, producto):
-        """Obtener nombre de categoría del producto"""
-        categoria = producto.get('categoria', {})
+        """Obtener nombre de categoría del producto (acepta string o dict)"""
+        categoria = producto.get('categoria', None)
         if isinstance(categoria, dict):
             return categoria.get('nombre', 'Sin categoría')
+        elif isinstance(categoria, str):
+            return categoria
         return 'Sin categoría'
 
     def convertir_precio(self, precio):
@@ -442,22 +449,12 @@ class StockManagementSection(ctk.CTkFrame):
             messagebox.showerror("Error", f"Error al abrir gestión de stock: {str(e)}")
 
     def actualizar_stock_callback(self, producto_id, nuevo_stock):
-        """Callback para actualizar stock de un producto"""
+        """Callback para actualizar stock de un producto: actualiza en API y recarga inventario para máxima consistencia"""
         try:
-            # Actualizar en la lista local
-            for producto in self.productos_stock:
-                if producto['id'] == producto_id:
-                    producto['stock_actual'] = nuevo_stock
-                    producto['estado_stock'] = self.calcular_estado_stock(nuevo_stock)
-                    producto['valor_inventario'] = nuevo_stock * producto['precio']
-                    break
-            
-            # Actualizar filtrados
-            self.filtrar_productos()
-            
-            # Actualizar en la API
+            # Actualizar en la API primero
             self.actualizar_stock_api(producto_id, nuevo_stock)
-            
+            # Recargar inventario desde la API para máxima consistencia
+            self.cargar_inventario()
         except Exception as e:
             messagebox.showerror("Error", f"Error al actualizar stock: {str(e)}")
 
@@ -467,11 +464,11 @@ class StockManagementSection(ctk.CTkFrame):
             token = SessionManager.get_token()
             headers = {'Authorization': f'Bearer {token}'} if token else {}
             
-            # Usar el endpoint de actualización de stock
-            url = INVENTORY_MANAGEMENT_ENDPOINTS['inventory']['set_stock'].format(id=producto_id)
-            
+            # Usar el endpoint de actualización de stock correcto
+            url = INVENTORY_MANAGEMENT_ENDPOINTS['inventory']['update_stock'].format(id=producto_id)
             payload = {
-                'cantidad_disponible': nuevo_stock
+                'cantidad_disponible': nuevo_stock,
+                'accion': 'establecer'
             }
             
             response = APIHandler.make_request('PATCH', url, headers=headers, data=payload)
@@ -762,8 +759,8 @@ class ModalEditarStock(ctk.CTkToplevel):
             # Llamada a la API para establecer el stock
             token = SessionManager.get_token()
             headers = {'Authorization': f'Bearer {token}'} if token else {}
-            url = INVENTORY_MANAGEMENT_ENDPOINTS['inventory']['set_stock'].format(id=self.producto['id'])
-            payload = {'cantidad_disponible': nuevo_stock}
+            url = INVENTORY_MANAGEMENT_ENDPOINTS['inventory']['update_stock'].format(id=self.producto['id'])
+            payload = {'cantidad_disponible': nuevo_stock, 'accion': 'establecer'}
             response = APIHandler.make_request('PATCH', url, headers=headers, data=payload)
 
             if response['status_code'] == 200:
@@ -911,15 +908,14 @@ class ModalCambiarStock(ctk.CTkToplevel):
             token = SessionManager.get_token()
             headers = {'Authorization': f'Bearer {token}'} if token else {}
 
+            url = INVENTORY_MANAGEMENT_ENDPOINTS['inventory']['update_stock'].format(id=self.producto['id'])
             if self.accion == "aumentar":
-                url = INVENTORY_MANAGEMENT_ENDPOINTS['inventory']['increase_stock'].format(id=self.producto['id'])
-                payload = {'cantidad_disponible': cantidad}
+                payload = {'cantidad_disponible': cantidad, 'accion': 'aumentar'}
                 nuevo_stock = stock_actual + cantidad
             else:  # reducir
                 if cantidad > stock_actual:
                     raise ValueError("No se puede reducir más stock del disponible")
-                url = INVENTORY_MANAGEMENT_ENDPOINTS['inventory']['decrease_stock'].format(id=self.producto['id'])
-                payload = {'cantidad_disponible': cantidad}
+                payload = {'cantidad_disponible': cantidad, 'accion': 'reducir'}
                 nuevo_stock = stock_actual - cantidad
 
             response = APIHandler.make_request('PATCH', url, headers=headers, data=payload)

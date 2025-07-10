@@ -60,9 +60,6 @@ INVENTORY_MANAGEMENT_ENDPOINTS = {
         
         # Endpoints de gestión de stock (flexibles)
         'update_stock': f"{API_BASE_URL}/admin/inventory/products/{{id}}/stock",  # PATCH - Actualizar stock (genérico con 'accion')
-        'increase_stock': f"{API_BASE_URL}/admin/inventory/products/{{id}}/stock/increase",  # PATCH - Aumentar stock específicamente
-        'decrease_stock': f"{API_BASE_URL}/admin/inventory/products/{{id}}/stock/decrease",  # PATCH - Reducir stock específicamente
-        'set_stock': f"{API_BASE_URL}/admin/inventory/products/{{id}}/stock/set"  # PATCH - Establecer stock específicamente
     }
 }
 
@@ -218,33 +215,28 @@ MESSAGES = {
 
 # Configuración de payloads para operaciones de stock
 STOCK_OPERATIONS_CONFIG = {
-    'update_stock': {
-        'endpoint_key': 'update_stock',
+    'establecer': {
+        'accion': 'establecer',
         'payload': {
-            'cantidad_disponible': 0,  # Requerido
-            'accion': 'establecer'  # Opcional: 'aumentar', 'reducir', 'establecer'
-        },
-        'description': 'Actualización genérica de stock con diferentes acciones'
-    },
-    'increase_stock': {
-        'endpoint_key': 'increase_stock',
-        'payload': {
-            'cantidad_disponible': 0  # Cantidad a aumentar
-        },
-        'description': 'Aumentar stock específicamente'
-    },
-    'decrease_stock': {
-        'endpoint_key': 'decrease_stock',
-        'payload': {
-            'cantidad_disponible': 0  # Cantidad a reducir
-        },
-        'description': 'Reducir stock específicamente'
-    },
-    'set_stock': {
-        'endpoint_key': 'set_stock',
-        'payload': {
-            'cantidad_disponible': 0  # Nueva cantidad total
+            'cantidad_disponible': 0,
+            'accion': 'establecer'
         },
         'description': 'Establecer stock a una cantidad específica'
+    },
+    'aumentar': {
+        'accion': 'aumentar',
+        'payload': {
+            'cantidad_disponible': 0,
+            'accion': 'aumentar'
+        },
+        'description': 'Aumentar stock'
+    },
+    'reducir': {
+        'accion': 'reducir',
+        'payload': {
+            'cantidad_disponible': 0,
+            'accion': 'reducir'
+        },
+        'description': 'Reducir stock'
     }
 }
