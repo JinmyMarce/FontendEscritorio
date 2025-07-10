@@ -526,8 +526,8 @@ class StockManagementSection(ctk.CTkFrame):
                 context_menu.add_command(label="📝 Editar Stock", command=lambda: self.on_double_click(event))
                 context_menu.add_command(label="📊 Ver Detalles", command=self.ver_detalles_producto)
                 context_menu.add_separator()
-                context_menu.add_command(label="📈 Aumentar Stock", command=self.aumentar_stock)
-                context_menu.add_command(label="📉 Reducir Stock", command=self.reducir_stock)
+                context_menu.add_command(label="➕ Aumentar Stock", command=self.aumentar_stock)
+                context_menu.add_command(label="➖ Reducir Stock", command=self.reducir_stock)
                 
                 # Mostrar menú
                 context_menu.tk_popup(event.x_root, event.y_root)
@@ -626,7 +626,7 @@ class ModalEditarStock(ctk.CTkToplevel):
     def configurar_modal(self):
         """Configurar propiedades del modal"""
         self.title("Editar Stock")
-        self.geometry("500x400")  # Más grande
+        self.geometry("600x480")  # Más grande
         self.resizable(False, False)
         self.transient(self.parent)
         self.after_idle(self.grab_set)
@@ -655,11 +655,23 @@ class ModalEditarStock(ctk.CTkToplevel):
         self.stock_entry.pack(anchor="w", padx=5, pady=(0, 10))
         self.stock_entry.insert(0, str(self.producto['stock_actual']))
 
-        # Botones
+        # Botones grandes, alineados y con espacio inferior
         buttons_frame = ctk.CTkFrame(self, fg_color="transparent")
-        buttons_frame.pack(fill="x", padx=30, pady=25)
-        ctk.CTkButton(buttons_frame, text="Actualizar", command=self.actualizar_stock, fg_color="#4CAF50", font=("Quicksand", 13, "bold"), width=120, height=38).pack(side="right", padx=10)
-        ctk.CTkButton(buttons_frame, text="Cancelar", command=self.destroy, font=("Quicksand", 13), width=100, height=38).pack(side="right", padx=10)
+        buttons_frame.pack(fill="x", padx=40, pady=(40, 35))
+        buttons_frame.grid_columnconfigure(0, weight=1)
+        buttons_frame.grid_columnconfigure(1, weight=1)
+        btn_cancelar = ctk.CTkButton(
+            buttons_frame, text="Cancelar", command=self.destroy,
+            font=("Quicksand", 16, "bold"), height=54,
+            fg_color="#E0E0E0", text_color="#2E6B5C", hover_color="#BDBDBD", corner_radius=10
+        )
+        btn_cancelar.grid(row=0, column=0, padx=22, sticky="ew")
+        btn_actualizar = ctk.CTkButton(
+            buttons_frame, text="Actualizar", command=self.actualizar_stock,
+            fg_color="#4CAF50", hover_color="#388E3C",
+            font=("Quicksand", 16, "bold"), height=54, corner_radius=10
+        )
+        btn_actualizar.grid(row=0, column=1, padx=22, sticky="ew")
         
     def actualizar_stock(self):
         """Actualizar stock del producto usando la API set_stock"""
@@ -714,7 +726,7 @@ class ModalCambiarStock(ctk.CTkToplevel):
         """Configurar propiedades del modal"""
         titulo = "Aumentar Stock" if self.accion == "aumentar" else "Reducir Stock"
         self.title(titulo)
-        self.geometry("500x400")  # Más grande y uniforme
+        self.geometry("600x480")  # Más grande y uniforme
         self.resizable(False, False)
         self.transient(self.parent)
         self.after_idle(self.grab_set)
@@ -744,12 +756,25 @@ class ModalCambiarStock(ctk.CTkToplevel):
         self.cantidad_entry = ctk.CTkEntry(entry_frame, width=220, font=("Quicksand", 13))
         self.cantidad_entry.pack(anchor="w", padx=5, pady=(0, 10))
 
-        # Botones
+        # Botones grandes, alineados y con espacio inferior
         buttons_frame = ctk.CTkFrame(self, fg_color="transparent")
-        buttons_frame.pack(fill="x", padx=30, pady=25)
+        buttons_frame.pack(fill="x", padx=40, pady=(40, 35))
+        buttons_frame.grid_columnconfigure(0, weight=1)
+        buttons_frame.grid_columnconfigure(1, weight=1)
         color = "#4CAF50" if self.accion == "aumentar" else "#FF6B6B"
-        ctk.CTkButton(buttons_frame, text="Aplicar", command=self.aplicar_cambio, fg_color=color, font=("Quicksand", 13, "bold"), width=120, height=38).pack(side="right", padx=10)
-        ctk.CTkButton(buttons_frame, text="Cancelar", command=self.destroy, font=("Quicksand", 13), width=100, height=38).pack(side="right", padx=10)
+        hover_color = "#388E3C" if self.accion == "aumentar" else "#C62828"
+        btn_cancelar = ctk.CTkButton(
+            buttons_frame, text="Cancelar", command=self.destroy,
+            font=("Quicksand", 16, "bold"), height=54,
+            fg_color="#E0E0E0", text_color="#2E6B5C", hover_color="#BDBDBD", corner_radius=10
+        )
+        btn_cancelar.grid(row=0, column=0, padx=22, sticky="ew")
+        btn_aplicar = ctk.CTkButton(
+            buttons_frame, text="Aplicar", command=self.aplicar_cambio,
+            fg_color=color, hover_color=hover_color,
+            font=("Quicksand", 16, "bold"), height=54, corner_radius=10
+        )
+        btn_aplicar.grid(row=0, column=1, padx=22, sticky="ew")
         
     def aplicar_cambio(self):
         """Aplicar cambio en el stock usando la API correspondiente"""
@@ -847,8 +872,13 @@ class ModalDetalleStock(ctk.CTkToplevel):
             ctk.CTkLabel(row_frame, text=label, font=("Quicksand", 12, "bold")).pack(side="left")
             ctk.CTkLabel(row_frame, text=str(value), font=("Quicksand", 12)).pack(side="right")
         
-        # Botón cerrar
-        ctk.CTkButton(self, text="Cerrar", command=self.destroy).pack(pady=20)
+        # Botón cerrar grande y centrado, con relleno
+        btn_cerrar = ctk.CTkButton(
+            self, text="Cerrar", command=self.destroy,
+            font=("Quicksand", 16, "bold"), height=54,
+            fg_color="#E0E0E0", text_color="#2E6B5C", hover_color="#BDBDBD", corner_radius=10
+        )
+        btn_cerrar.pack(pady=40, padx=80, fill="x")
         
     def center_window(self):
         """Centrar ventana en pantalla"""
