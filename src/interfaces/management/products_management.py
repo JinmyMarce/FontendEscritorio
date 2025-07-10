@@ -431,12 +431,22 @@ class ProductsSection(ctk.CTkFrame):
             messagebox.showerror("Error", f"Error al abrir modal de editar producto: {str(e)}")
 
     def guardar_producto_modal(self, datos_producto):
-        """Callback para guardar producto desde modal"""
+        """Callback para guardar producto desde modal, incluyendo integración de stock inicial y validaciones mejoradas"""
         try:
             url = INVENTORY_MANAGEMENT_ENDPOINTS['products']['create']
             token = SessionManager.get_token()
             headers = {'Authorization': f'Bearer {token}'} if token else {}
-            
+
+            # Validar stock inicial
+            stock_raw = datos_producto.get('stock', '').strip()
+            try:
+                stock_inicial = int(stock_raw) if stock_raw != '' else 0
+                if stock_inicial < 0:
+                    raise ValueError
+            except ValueError:
+                messagebox.showerror("Error de validación", "El stock inicial debe ser un número entero mayor o igual a 0.")
+                return False
+
             # Preparar datos para envío con tipos correctos
             data = {
                 'nombre': str(datos_producto['nombre']),
@@ -444,92 +454,88 @@ class ProductsSection(ctk.CTkFrame):
                 'precio': str(datos_producto['precio']),
                 'peso': str(datos_producto['peso']),
                 'categorias_id_categoria': str(datos_producto['categoria_id']),
-                'estado': 'activo'  # Por defecto activo
+                'estado': 'activo'
             }
-            
-            # Si hay stock, agregarlo
-            if datos_producto.get('stock'):
-                data['stock'] = str(datos_producto['stock'])
-            
-            # Debug: Imprimir datos que se van a enviar
-            print(f"Creando producto...")
-            print(f"URL: {url}")
-            print(f"Datos a enviar: {data}")
-            
+
             files = {}
-            # Si hay imagen, prepararla para upload
             if datos_producto.get('imagen_path'):
                 try:
                     with open(datos_producto['imagen_path'], 'rb') as f:
                         files['imagen'] = ('image.jpg', f, 'image/jpeg')
-                        
                         print("Enviando creación con imagen...")
-                        
-                        # Usar requests directamente para multipart/form-data
                         response = requests.post(
                             url,
                             data=data,
                             files=files,
                             headers={'Authorization': f'Bearer {token}'} if token else {}
                         )
-                        
-                        print(f"Respuesta status: {response.status_code}")
-                        
-                        if response.status_code == 201:
-                            messagebox.showinfo("Éxito", "Producto creado exitosamente")
-                            self.cargar_productos()
-                            return True
-                        else:
-                            try:
-                                error_data = response.json()
-                                print(f"Error response data: {error_data}")
-                                error_msg = error_data.get('message', 'Error al crear producto')
-                                # Si hay detalles de validación, mostrarlos
-                                if 'errors' in error_data:
-                                    error_details = []
-                                    for field, messages in error_data['errors'].items():
-                                        if isinstance(messages, list):
-                                            error_details.extend([f"{field}: {msg}" for msg in messages])
-                                        else:
-                                            error_details.append(f"{field}: {messages}")
-                                    error_msg += "\n\nDetalles:\n" + "\n".join(error_details)
-                            except:
-                                error_msg = f"Error al crear producto (Código: {response.status_code})\nRespuesta: {response.text}"
-                            messagebox.showerror("Error de Validación", error_msg)
-                            return False
-                            
                 except Exception as e:
                     messagebox.showerror("Error", f"Error al cargar imagen: {str(e)}")
                     return False
             else:
                 print("Enviando creación sin imagen...")
-                
-                # Sin imagen, usar APIHandler normal
                 response = APIHandler.make_request('POST', url, headers=headers, data=data)
-                
-                print(f"Respuesta APIHandler: {response}")
-                
-                if response['status_code'] == 201:
-                    messagebox.showinfo("Éxito", "Producto creado exitosamente")
-                    self.cargar_productos()
-                    return True
+
+            # Manejar respuesta de creación
+            producto_id = None
+            if hasattr(response, 'status_code'):
+                status_code = response.status_code
+                try:
+                    resp_json = response.json()
+                except Exception:
+                    resp_json = {}
+                if status_code == 201:
+                    # Buscar el ID del producto en la respuesta
+                    producto_id = resp_json.get('id_producto') or resp_json.get('data', {}).get('id_producto') or resp_json.get('data', {}).get('id')
                 else:
-                    error_data = response.get('data', {})
-                    error_msg = error_data.get('message', 'Error al crear producto')
-                    
-                    # Si hay detalles de validación, mostrarlos
-                    if isinstance(error_data, dict) and 'errors' in error_data:
+                    error_msg = resp_json.get('message', 'Error al crear producto')
+                    if 'errors' in resp_json:
                         error_details = []
-                        for field, messages in error_data['errors'].items():
+                        for field, messages in resp_json['errors'].items():
                             if isinstance(messages, list):
-                                error_details.extend([f"{field}: msg" for msg in messages])
+                                error_details.extend([f"{field}: {msg}" for msg in messages])
                             else:
                                 error_details.append(f"{field}: {messages}")
                         error_msg += "\n\nDetalles:\n" + "\n".join(error_details)
-                    
                     messagebox.showerror("Error de Validación", error_msg)
                     return False
-                    
+            else:
+                # APIHandler response
+                status_code = response.get('status_code')
+                resp_json = response.get('data', {})
+                if status_code == 201:
+                    producto_id = resp_json.get('id_producto') or resp_json.get('data', {}).get('id_producto') or resp_json.get('data', {}).get('id')
+                else:
+                    error_msg = resp_json.get('message', 'Error al crear producto')
+                    if isinstance(resp_json, dict) and 'errors' in resp_json:
+                        error_details = []
+                        for field, messages in resp_json['errors'].items():
+                            if isinstance(messages, list):
+                                error_details.extend([f"{field}: {msg}" for msg in messages])
+                            else:
+                                error_details.append(f"{field}: {messages}")
+                        error_msg += "\n\nDetalles:\n" + "\n".join(error_details)
+                    messagebox.showerror("Error de Validación", error_msg)
+                    return False
+
+            # Si hay stock inicial > 0, hacer PATCH al endpoint de stock
+            if producto_id and stock_inicial > 0:
+                try:
+                    stock_url = INVENTORY_MANAGEMENT_ENDPOINTS['inventory']['update_stock'].format(id=producto_id)
+                    payload = {"cantidad_disponible": stock_inicial}
+                    print(f"Estableciendo stock inicial para producto {producto_id}: {payload}")
+                    stock_response = APIHandler.make_request('PATCH', stock_url, headers=headers, data=payload)
+                    if stock_response.get('status_code') not in (200, 201):
+                        stock_msg = stock_response.get('data', {}).get('message', 'No se pudo establecer el stock inicial.')
+                        messagebox.showwarning("Advertencia", f"Producto creado, pero no se pudo establecer el stock inicial.\n{stock_msg}")
+                    else:
+                        print("Stock inicial establecido correctamente.")
+                except Exception as e:
+                    messagebox.showwarning("Advertencia", f"Producto creado, pero ocurrió un error al establecer el stock inicial: {str(e)}")
+
+            messagebox.showinfo("Éxito", "Producto creado exitosamente")
+            self.cargar_productos()
+            return True
         except Exception as e:
             print(f"Excepción en guardar_producto_modal: {str(e)}")
             messagebox.showerror("Error", f"Error al guardar producto: {str(e)}")
