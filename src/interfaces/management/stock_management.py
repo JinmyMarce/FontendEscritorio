@@ -12,6 +12,33 @@ def es_wayland():
     return os.environ.get('WAYLAND_DISPLAY') is not None or os.environ.get('XDG_SESSION_TYPE') == 'wayland'
 
 class StockManagementSection(ctk.CTkFrame):
+    def setup_tabla(self):
+        """Configurar la tabla de stock con ordenamiento por columna de stock_actual"""
+        # ...existing code...
+        self.orden_stock = None  # None=default, 'asc'=ascendente, 'desc'=descendente
+
+        # ...existing code...
+        self.tabla.heading("stock_actual", text="Stock Actual", command=self.ordenar_por_stock)
+        # ...existing code...
+
+    def ordenar_por_stock(self):
+        """Ordenar la tabla por la columna de stock_actual (menor->mayor, mayor->menor, default)"""
+        if not hasattr(self, 'orden_stock'):
+            self.orden_stock = None
+        # Determinar siguiente orden
+        if self.orden_stock is None:
+            # Ordenar ascendente
+            self.productos_filtrados.sort(key=lambda p: p['stock_actual'])
+            self.orden_stock = 'asc'
+        elif self.orden_stock == 'asc':
+            # Ordenar descendente
+            self.productos_filtrados.sort(key=lambda p: p['stock_actual'], reverse=True)
+            self.orden_stock = 'desc'
+        else:
+            # Restaurar orden por defecto (por id o como llegaron)
+            self.productos_filtrados = self.productos_stock.copy()
+            self.orden_stock = None
+        self.actualizar_tabla()
     """Sección dedicada al control de stock e inventario"""
     
     def __init__(self, parent):
@@ -121,12 +148,10 @@ class StockManagementSection(ctk.CTkFrame):
         self.setup_tabla()
 
     def setup_tabla(self):
-        """Configurar la tabla de stock"""
-        # Frame para la tabla
+        """Configurar la tabla de stock con ordenamiento por columna de stock_actual"""
         tabla_frame = ctk.CTkFrame(self, fg_color="#FFFFFF", corner_radius=10)
         tabla_frame.grid(row=2, column=0, pady=(0, 20), padx=20, sticky="nsew")
 
-        # Crear la tabla
         style = ttk.Style()
         style.theme_use('default')
         style.configure("Stock.Treeview",
@@ -140,31 +165,27 @@ class StockManagementSection(ctk.CTkFrame):
                        foreground="white",
                        relief="flat",
                        font=("Quicksand", 12, "bold"))
-        
-        # Configurar selección de filas y hover effects
         style.map("Stock.Treeview",
                  background=[('selected', '#E8F5E8')],
                  foreground=[('selected', '#2E6B5C')])
 
-        # Definir columnas optimizadas para stock
         columns = ("id", "producto", "categoria", "stock_actual", "precio", "estado_stock", "valor_inventario")
         self.tabla = ttk.Treeview(tabla_frame, columns=columns, show='headings', style="Stock.Treeview")
-        
-        # Tags para colorear estados de stock
+        self.orden_stock = None  # None=default, 'asc'=ascendente, 'desc'=descendente
+
         self.tabla.tag_configure('stock_bajo', background='#FFF3CD', foreground='#856404')
         self.tabla.tag_configure('sin_stock', background='#F8D7DA', foreground='#721C24')
         self.tabla.tag_configure('stock_normal', background='#D4EDDA', foreground='#155724')
-        
-        # Configurar encabezados y columnas
+
         self.tabla.heading("id", text="ID")
         self.tabla.heading("producto", text="Producto")
         self.tabla.heading("categoria", text="Categoría")
-        self.tabla.heading("stock_actual", text="Stock Actual")
+        # Cambia el encabezado para que parezca un botón y permita click
+        self.tabla.heading("stock_actual", text="Stock Actual ▲▼", command=self.ordenar_por_stock)
         self.tabla.heading("precio", text="Precio")
         self.tabla.heading("estado_stock", text="Estado")
         self.tabla.heading("valor_inventario", text="Valor Inventario")
-        
-        # Configurar anchos y alineación de columnas
+
         self.tabla.column("id", width=60, minwidth=50, anchor="center")
         self.tabla.column("producto", width=200, minwidth=150, anchor="w")
         self.tabla.column("categoria", width=140, minwidth=120, anchor="center")
@@ -173,22 +194,17 @@ class StockManagementSection(ctk.CTkFrame):
         self.tabla.column("estado_stock", width=120, minwidth=100, anchor="center")
         self.tabla.column("valor_inventario", width=140, minwidth=120, anchor="center")
 
-        # Scrollbar
         scrollbar = ttk.Scrollbar(tabla_frame, orient="vertical", command=self.tabla.yview)
         self.tabla.configure(yscrollcommand=scrollbar.set)
-        
         self.tabla.pack(side="left", fill="both", expand=True, padx=20, pady=20)
         scrollbar.pack(side="right", fill="y")
 
-        # Eventos de la tabla
         self.tabla.bind('<<TreeviewSelect>>', self.on_select)
         self.tabla.bind('<Double-1>', self.on_double_click)
         self.tabla.bind('<Button-3>', self.on_right_click)
 
-        # Frame para estadísticas
         stats_frame = ctk.CTkFrame(self, fg_color="#E8F5E8", corner_radius=10)
         stats_frame.grid(row=3, column=0, padx=20, pady=(0, 20), sticky="ew")
-        
         self.stats_label = ctk.CTkLabel(
             stats_frame,
             text="🔄 Cargando estadísticas de inventario...",
