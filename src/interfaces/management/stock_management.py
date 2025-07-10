@@ -574,32 +574,66 @@ class ModalGestionStock(ctk.CTkToplevel):
         
     def setup_ui(self):
         """Configurar interfaz del modal"""
+        from PIL import Image, ImageTk
+        import requests
+        from io import BytesIO
+
         # Título
-        titulo = ctk.CTkLabel(self, text="Gestión General de Stock", 
-                             font=("Quicksand", 20, "bold"))
+        titulo = ctk.CTkLabel(self, text="Gestión General de Stock", font=("Quicksand", 20, "bold"))
         titulo.pack(pady=20)
-        
+
         # Información
         info_text = "Selecciona productos y actualiza su stock de manera masiva"
         info_label = ctk.CTkLabel(self, text=info_text, font=("Quicksand", 12))
         info_label.pack(pady=(0, 20))
-        
-        # Lista de productos (simplified)
+
+        # Lista de productos (con imagen y campos)
         products_frame = ctk.CTkFrame(self)
         products_frame.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        # Placeholder para funcionalidad futura
-        placeholder = ctk.CTkLabel(products_frame, 
-                                  text="Funcionalidad de gestión masiva\n(Por implementar)", 
-                                  font=("Quicksand", 14))
-        placeholder.pack(expand=True)
-        
+
+        for idx, producto in enumerate(self.productos):
+            row_frame = ctk.CTkFrame(products_frame, fg_color="#F5F5F5", corner_radius=10)
+            row_frame.pack(fill="x", pady=8, padx=8)
+            row_frame.grid_columnconfigure(0, weight=0)
+            row_frame.grid_columnconfigure(1, weight=1)
+
+            # Imagen
+            image_label = ctk.CTkLabel(row_frame, text="Cargando imagen...", width=60, height=60)
+            image_label.grid(row=0, column=0, rowspan=2, padx=10, pady=10)
+            imagen_preview = None
+            url_imagen = producto.get('url_imagen') or producto.get('imagen')
+            if url_imagen and url_imagen != 'productos/default.jpg':
+                try:
+                    if url_imagen.startswith('http'):
+                        response = requests.get(url_imagen, timeout=8)
+                        if response.status_code == 200:
+                            imagen_data = BytesIO(response.content)
+                            imagen = Image.open(imagen_data)
+                            imagen.thumbnail((60, 60), Image.Resampling.LANCZOS)
+                            imagen_preview = ImageTk.PhotoImage(imagen)
+                            image_label.configure(image=imagen_preview, text="")
+                            image_label.image = imagen_preview
+                        else:
+                            image_label.configure(text="No imagen")
+                    else:
+                        imagen = Image.open(url_imagen)
+                        imagen.thumbnail((60, 60), Image.Resampling.LANCZOS)
+                        imagen_preview = ImageTk.PhotoImage(imagen)
+                        image_label.configure(image=imagen_preview, text="")
+                        image_label.image = imagen_preview
+                except Exception:
+                    image_label.configure(text="No imagen")
+            else:
+                image_label.configure(text="Sin imagen")
+
+            # Info producto
+            info_text = f"{producto['nombre']}\nCategoría: {producto.get('categoria', '-')}\nStock: {producto['stock_actual']} | Precio: S/. {producto['precio']:,.2f}"
+            ctk.CTkLabel(row_frame, text=info_text, font=("Quicksand", 12), anchor="w", justify="left").grid(row=0, column=1, sticky="w", padx=5, pady=(10, 0))
+
         # Botones
         buttons_frame = ctk.CTkFrame(self, fg_color="transparent")
         buttons_frame.pack(fill="x", padx=20, pady=(0, 20))
-        
-        ctk.CTkButton(buttons_frame, text="Cerrar", 
-                     command=self.destroy).pack(side="right", padx=5)
+        ctk.CTkButton(buttons_frame, text="Cerrar", command=self.destroy).pack(side="right", padx=5)
         
     def center_window(self):
         """Centrar ventana en pantalla"""
@@ -626,7 +660,7 @@ class ModalEditarStock(ctk.CTkToplevel):
     def configurar_modal(self):
         """Configurar propiedades del modal"""
         self.title("Editar Stock")
-        self.geometry("600x480")  # Más grande
+        self.geometry("600x340")  # Más compacto
         self.resizable(False, False)
         self.transient(self.parent)
         self.after_idle(self.grab_set)
@@ -634,44 +668,89 @@ class ModalEditarStock(ctk.CTkToplevel):
         
     def setup_ui(self):
         """Configurar interfaz del modal"""
+        from PIL import Image, ImageTk
+        import requests
+        from io import BytesIO
+
         # Título
         titulo = ctk.CTkLabel(self, text="Editar Stock del Producto", font=("Quicksand", 20, "bold"))
         titulo.pack(pady=(20, 10))
 
-        # Información del producto en un frame destacado
-        info_frame = ctk.CTkFrame(self, fg_color="#F5F5F5", corner_radius=10)
-        info_frame.pack(fill="x", padx=30, pady=10)
-        ctk.CTkLabel(info_frame, text=f"Producto:", font=("Quicksand", 13, "bold"), anchor="w").pack(anchor="w", padx=10, pady=(10, 0))
-        ctk.CTkLabel(info_frame, text=self.producto['nombre'], font=("Quicksand", 13), anchor="w").pack(anchor="w", padx=20)
-        ctk.CTkLabel(info_frame, text=f"Categoría: {self.producto.get('categoria', '-')}", font=("Quicksand", 12)).pack(anchor="w", padx=10, pady=(5, 0))
-        ctk.CTkLabel(info_frame, text=f"Stock actual: {self.producto['stock_actual']}", font=("Quicksand", 12)).pack(anchor="w", padx=10, pady=(5, 0))
-        ctk.CTkLabel(info_frame, text=f"Precio: S/. {self.producto['precio']:,.2f}", font=("Quicksand", 12)).pack(anchor="w", padx=10, pady=(5, 10))
+        # Frame principal para info y preview
+        main_frame = ctk.CTkFrame(self, fg_color="transparent")
+        main_frame.pack(fill="x", padx=30, pady=10)
+        main_frame.grid_columnconfigure(0, weight=3)
+        main_frame.grid_columnconfigure(1, weight=2)
 
-        # Campo de nuevo stock
-        entry_frame = ctk.CTkFrame(self, fg_color="transparent")
-        entry_frame.pack(fill="x", padx=30, pady=(10, 0))
-        ctk.CTkLabel(entry_frame, text="Nuevo stock:", font=("Quicksand", 13, "bold")).pack(anchor="w", padx=5, pady=(0, 5))
-        self.stock_entry = ctk.CTkEntry(entry_frame, width=220, font=("Quicksand", 13))
+        # Info producto (izquierda)
+        info_frame = ctk.CTkFrame(main_frame, fg_color="#F5F5F5", corner_radius=10)
+        info_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=0)
+        ctk.CTkLabel(info_frame, text=f"Producto:", font=("Quicksand", 13, "bold"), anchor="w").pack(anchor="w", padx=10, pady=(10, 0))
+        ctk.CTkLabel(info_frame, text=self.producto['nombre'], font=("Quicksand", 13), anchor="w", justify="left").pack(anchor="w", padx=10, pady=(0, 0))
+        ctk.CTkLabel(info_frame, text=f"Categoría: {self.producto.get('categoria', '-')}", font=("Quicksand", 12), anchor="w").pack(anchor="w", padx=10, pady=(5, 0))
+        ctk.CTkLabel(info_frame, text=f"Stock actual: {self.producto['stock_actual']}", font=("Quicksand", 12), anchor="w").pack(anchor="w", padx=10, pady=(5, 0))
+        ctk.CTkLabel(info_frame, text=f"Precio: S/. {self.producto['precio']:,.2f}", font=("Quicksand", 12), anchor="w").pack(anchor="w", padx=10, pady=(5, 10))
+
+        # Imagen producto (derecha)
+        image_frame = ctk.CTkFrame(main_frame, fg_color="#F5F5F5", corner_radius=10, width=150, height=150)
+        image_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=0)
+        image_frame.grid_propagate(False)
+        self.imagen_label = ctk.CTkLabel(image_frame, text="Cargando imagen...", width=140, height=140)
+        self.imagen_label.pack(expand=True, fill="both", padx=5, pady=5)
+        self.imagen_preview = None
+
+        # Cargar imagen del producto
+        url_imagen = self.producto.get('url_imagen') or self.producto.get('imagen')
+        if url_imagen and url_imagen != 'productos/default.jpg':
+            try:
+                if url_imagen.startswith('http'):
+                    response = requests.get(url_imagen, timeout=8)
+                    if response.status_code == 200:
+                        imagen_data = BytesIO(response.content)
+                        imagen = Image.open(imagen_data)
+                        imagen.thumbnail((140, 140), Image.Resampling.LANCZOS)
+                        self.imagen_preview = ImageTk.PhotoImage(imagen)
+                        self.imagen_label.configure(image=self.imagen_preview, text="")
+                    else:
+                        self.imagen_label.configure(text="No se pudo cargar la imagen")
+                else:
+                    # Intentar cargar local
+                    imagen = Image.open(url_imagen)
+                    imagen.thumbnail((140, 140), Image.Resampling.LANCZOS)
+                    self.imagen_preview = ImageTk.PhotoImage(imagen)
+                    self.imagen_label.configure(image=self.imagen_preview, text="")
+            except Exception as e:
+                self.imagen_label.configure(text="No se pudo cargar la imagen")
+        else:
+            self.imagen_label.configure(text="Sin imagen")
+
+        # Campo de nuevo stock y botones en la misma fila
+        action_frame = ctk.CTkFrame(self, fg_color="transparent")
+        action_frame.pack(fill="x", padx=30, pady=(10, 0))
+        action_frame.grid_columnconfigure(0, weight=2)
+        action_frame.grid_columnconfigure(1, weight=1)
+        # Nuevo stock (izquierda)
+        entry_inner = ctk.CTkFrame(action_frame, fg_color="transparent")
+        entry_inner.grid(row=0, column=0, sticky="w", padx=(0, 10))
+        ctk.CTkLabel(entry_inner, text="Nuevo stock:", font=("Quicksand", 13, "bold")).pack(anchor="w", padx=5, pady=(0, 5))
+        self.stock_entry = ctk.CTkEntry(entry_inner, width=120, font=("Quicksand", 13))
         self.stock_entry.pack(anchor="w", padx=5, pady=(0, 10))
         self.stock_entry.insert(0, str(self.producto['stock_actual']))
-
-        # Botones grandes, alineados y con espacio inferior
-        buttons_frame = ctk.CTkFrame(self, fg_color="transparent")
-        buttons_frame.pack(fill="x", padx=40, pady=(40, 35))
-        buttons_frame.grid_columnconfigure(0, weight=1)
-        buttons_frame.grid_columnconfigure(1, weight=1)
-        btn_cancelar = ctk.CTkButton(
-            buttons_frame, text="Cancelar", command=self.destroy,
-            font=("Quicksand", 16, "bold"), height=54,
-            fg_color="#E0E0E0", text_color="#2E6B5C", hover_color="#BDBDBD", corner_radius=10
-        )
-        btn_cancelar.grid(row=0, column=0, padx=22, sticky="ew")
+        # Botones (derecha)
+        btns_inner = ctk.CTkFrame(action_frame, fg_color="transparent")
+        btns_inner.grid(row=0, column=1, sticky="e", padx=(10, 0))
         btn_actualizar = ctk.CTkButton(
-            buttons_frame, text="Actualizar", command=self.actualizar_stock,
+            btns_inner, text="Actualizar", command=self.actualizar_stock,
             fg_color="#4CAF50", hover_color="#388E3C",
-            font=("Quicksand", 16, "bold"), height=54, corner_radius=10
+            font=("Quicksand", 13, "bold"), height=38, width=110, corner_radius=8
         )
-        btn_actualizar.grid(row=0, column=1, padx=22, sticky="ew")
+        btn_actualizar.pack(side="left", padx=(0, 8))
+        btn_cancelar = ctk.CTkButton(
+            btns_inner, text="Cancelar", command=self.destroy,
+            font=("Quicksand", 13, "bold"), height=38, width=110,
+            fg_color="#E0E0E0", text_color="#2E6B5C", hover_color="#BDBDBD", corner_radius=8
+        )
+        btn_cancelar.pack(side="left")
         
     def actualizar_stock(self):
         """Actualizar stock del producto usando la API set_stock"""
@@ -726,7 +805,7 @@ class ModalCambiarStock(ctk.CTkToplevel):
         """Configurar propiedades del modal"""
         titulo = "Aumentar Stock" if self.accion == "aumentar" else "Reducir Stock"
         self.title(titulo)
-        self.geometry("600x480")  # Más grande y uniforme
+        self.geometry("600x340")  # Más compacto
         self.resizable(False, False)
         self.transient(self.parent)
         self.after_idle(self.grab_set)
@@ -734,47 +813,92 @@ class ModalCambiarStock(ctk.CTkToplevel):
         
     def setup_ui(self):
         """Configurar interfaz del modal"""
+        from PIL import Image, ImageTk
+        import requests
+        from io import BytesIO
+
         # Título
         titulo_text = f"{'Aumentar' if self.accion == 'aumentar' else 'Reducir'} Stock"
         titulo = ctk.CTkLabel(self, text=titulo_text, font=("Quicksand", 20, "bold"))
         titulo.pack(pady=(20, 10))
 
-        # Información del producto en un frame destacado
-        info_frame = ctk.CTkFrame(self, fg_color="#F5F5F5", corner_radius=10)
-        info_frame.pack(fill="x", padx=30, pady=10)
+        # Frame principal para info y preview
+        main_frame = ctk.CTkFrame(self, fg_color="transparent")
+        main_frame.pack(fill="x", padx=30, pady=10)
+        main_frame.grid_columnconfigure(0, weight=3)
+        main_frame.grid_columnconfigure(1, weight=2)
+
+        # Info producto (izquierda)
+        info_frame = ctk.CTkFrame(main_frame, fg_color="#F5F5F5", corner_radius=10)
+        info_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=0)
         ctk.CTkLabel(info_frame, text=f"Producto:", font=("Quicksand", 13, "bold"), anchor="w").pack(anchor="w", padx=10, pady=(10, 0))
-        ctk.CTkLabel(info_frame, text=self.producto['nombre'], font=("Quicksand", 13), anchor="w").pack(anchor="w", padx=20)
-        ctk.CTkLabel(info_frame, text=f"Categoría: {self.producto.get('categoria', '-')}", font=("Quicksand", 12)).pack(anchor="w", padx=10, pady=(5, 0))
-        ctk.CTkLabel(info_frame, text=f"Stock actual: {self.producto['stock_actual']}", font=("Quicksand", 12)).pack(anchor="w", padx=10, pady=(5, 0))
-        ctk.CTkLabel(info_frame, text=f"Precio: S/. {self.producto['precio']:,.2f}", font=("Quicksand", 12)).pack(anchor="w", padx=10, pady=(5, 10))
+        ctk.CTkLabel(info_frame, text=self.producto['nombre'], font=("Quicksand", 13), anchor="w", justify="left").pack(anchor="w", padx=10, pady=(0, 0))
+        ctk.CTkLabel(info_frame, text=f"Categoría: {self.producto.get('categoria', '-')}", font=("Quicksand", 12), anchor="w").pack(anchor="w", padx=10, pady=(5, 0))
+        ctk.CTkLabel(info_frame, text=f"Stock actual: {self.producto['stock_actual']}", font=("Quicksand", 12), anchor="w").pack(anchor="w", padx=10, pady=(5, 0))
+        ctk.CTkLabel(info_frame, text=f"Precio: S/. {self.producto['precio']:,.2f}", font=("Quicksand", 12), anchor="w").pack(anchor="w", padx=10, pady=(5, 10))
 
-        # Campo de cantidad
-        entry_frame = ctk.CTkFrame(self, fg_color="transparent")
-        entry_frame.pack(fill="x", padx=30, pady=(10, 0))
+        # Imagen producto (derecha)
+        image_frame = ctk.CTkFrame(main_frame, fg_color="#F5F5F5", corner_radius=10, width=150, height=150)
+        image_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=0)
+        image_frame.grid_propagate(False)
+        self.imagen_label = ctk.CTkLabel(image_frame, text="Cargando imagen...", width=140, height=140)
+        self.imagen_label.pack(expand=True, fill="both", padx=5, pady=5)
+        self.imagen_preview = None
+
+        # Cargar imagen del producto
+        url_imagen = self.producto.get('url_imagen') or self.producto.get('imagen')
+        if url_imagen and url_imagen != 'productos/default.jpg':
+            try:
+                if url_imagen.startswith('http'):
+                    response = requests.get(url_imagen, timeout=8)
+                    if response.status_code == 200:
+                        imagen_data = BytesIO(response.content)
+                        imagen = Image.open(imagen_data)
+                        imagen.thumbnail((140, 140), Image.Resampling.LANCZOS)
+                        self.imagen_preview = ImageTk.PhotoImage(imagen)
+                        self.imagen_label.configure(image=self.imagen_preview, text="")
+                    else:
+                        self.imagen_label.configure(text="No se pudo cargar la imagen")
+                else:
+                    # Intentar cargar local
+                    imagen = Image.open(url_imagen)
+                    imagen.thumbnail((140, 140), Image.Resampling.LANCZOS)
+                    self.imagen_preview = ImageTk.PhotoImage(imagen)
+                    self.imagen_label.configure(image=self.imagen_preview, text="")
+            except Exception as e:
+                self.imagen_label.configure(text="No se pudo cargar la imagen")
+        else:
+            self.imagen_label.configure(text="Sin imagen")
+
+        # Campo de cantidad y botones en la misma fila
+        action_frame = ctk.CTkFrame(self, fg_color="transparent")
+        action_frame.pack(fill="x", padx=30, pady=(10, 0))
+        action_frame.grid_columnconfigure(0, weight=2)
+        action_frame.grid_columnconfigure(1, weight=1)
+        # Cantidad (izquierda)
+        entry_inner = ctk.CTkFrame(action_frame, fg_color="transparent")
+        entry_inner.grid(row=0, column=0, sticky="w", padx=(0, 10))
         cantidad_text = f"Cantidad a {'aumentar' if self.accion == 'aumentar' else 'reducir'}:"
-        ctk.CTkLabel(entry_frame, text=cantidad_text, font=("Quicksand", 13, "bold")).pack(anchor="w", padx=5, pady=(0, 5))
-        self.cantidad_entry = ctk.CTkEntry(entry_frame, width=220, font=("Quicksand", 13))
+        ctk.CTkLabel(entry_inner, text=cantidad_text, font=("Quicksand", 13, "bold")).pack(anchor="w", padx=5, pady=(0, 5))
+        self.cantidad_entry = ctk.CTkEntry(entry_inner, width=120, font=("Quicksand", 13))
         self.cantidad_entry.pack(anchor="w", padx=5, pady=(0, 10))
-
-        # Botones grandes, alineados y con espacio inferior
-        buttons_frame = ctk.CTkFrame(self, fg_color="transparent")
-        buttons_frame.pack(fill="x", padx=40, pady=(40, 35))
-        buttons_frame.grid_columnconfigure(0, weight=1)
-        buttons_frame.grid_columnconfigure(1, weight=1)
+        # Botones (derecha)
+        btns_inner = ctk.CTkFrame(action_frame, fg_color="transparent")
+        btns_inner.grid(row=0, column=1, sticky="e", padx=(10, 0))
         color = "#4CAF50" if self.accion == "aumentar" else "#FF6B6B"
         hover_color = "#388E3C" if self.accion == "aumentar" else "#C62828"
-        btn_cancelar = ctk.CTkButton(
-            buttons_frame, text="Cancelar", command=self.destroy,
-            font=("Quicksand", 16, "bold"), height=54,
-            fg_color="#E0E0E0", text_color="#2E6B5C", hover_color="#BDBDBD", corner_radius=10
-        )
-        btn_cancelar.grid(row=0, column=0, padx=22, sticky="ew")
         btn_aplicar = ctk.CTkButton(
-            buttons_frame, text="Aplicar", command=self.aplicar_cambio,
+            btns_inner, text="Aplicar", command=self.aplicar_cambio,
             fg_color=color, hover_color=hover_color,
-            font=("Quicksand", 16, "bold"), height=54, corner_radius=10
+            font=("Quicksand", 13, "bold"), height=38, width=110, corner_radius=8
         )
-        btn_aplicar.grid(row=0, column=1, padx=22, sticky="ew")
+        btn_aplicar.pack(side="left", padx=(0, 8))
+        btn_cancelar = ctk.CTkButton(
+            btns_inner, text="Cancelar", command=self.destroy,
+            font=("Quicksand", 13, "bold"), height=38, width=110,
+            fg_color="#E0E0E0", text_color="#2E6B5C", hover_color="#BDBDBD", corner_radius=8
+        )
+        btn_cancelar.pack(side="left")
         
     def aplicar_cambio(self):
         """Aplicar cambio en el stock usando la API correspondiente"""
