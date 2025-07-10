@@ -569,7 +569,7 @@ class ModalGestionStock(ctk.CTkToplevel):
         self.geometry("800x600")
         self.resizable(False, False)
         self.transient(self.parent)
-        self.grab_set()
+        self.after_idle(self.grab_set)
         self.center_window()
         
     def setup_ui(self):
@@ -626,55 +626,62 @@ class ModalEditarStock(ctk.CTkToplevel):
     def configurar_modal(self):
         """Configurar propiedades del modal"""
         self.title("Editar Stock")
-        self.geometry("400x300")
+        self.geometry("500x400")  # Más grande
         self.resizable(False, False)
         self.transient(self.parent)
-        self.grab_set()
+        self.after_idle(self.grab_set)
         self.center_window()
         
     def setup_ui(self):
         """Configurar interfaz del modal"""
         # Título
-        titulo = ctk.CTkLabel(self, text="Editar Stock del Producto", 
-                             font=("Quicksand", 18, "bold"))
-        titulo.pack(pady=20)
-        
-        # Información del producto
-        info_frame = ctk.CTkFrame(self)
-        info_frame.pack(fill="x", padx=20, pady=10)
-        
-        ctk.CTkLabel(info_frame, text=f"Producto: {self.producto['nombre']}", 
-                    font=("Quicksand", 12, "bold")).pack(pady=5)
-        ctk.CTkLabel(info_frame, text=f"Stock actual: {self.producto['stock_actual']}", 
-                    font=("Quicksand", 12)).pack(pady=5)
-        
+        titulo = ctk.CTkLabel(self, text="Editar Stock del Producto", font=("Quicksand", 20, "bold"))
+        titulo.pack(pady=(20, 10))
+
+        # Información del producto en un frame destacado
+        info_frame = ctk.CTkFrame(self, fg_color="#F5F5F5", corner_radius=10)
+        info_frame.pack(fill="x", padx=30, pady=10)
+        ctk.CTkLabel(info_frame, text=f"Producto:", font=("Quicksand", 13, "bold"), anchor="w").pack(anchor="w", padx=10, pady=(10, 0))
+        ctk.CTkLabel(info_frame, text=self.producto['nombre'], font=("Quicksand", 13), anchor="w").pack(anchor="w", padx=20)
+        ctk.CTkLabel(info_frame, text=f"Categoría: {self.producto.get('categoria', '-')}", font=("Quicksand", 12)).pack(anchor="w", padx=10, pady=(5, 0))
+        ctk.CTkLabel(info_frame, text=f"Stock actual: {self.producto['stock_actual']}", font=("Quicksand", 12)).pack(anchor="w", padx=10, pady=(5, 0))
+        ctk.CTkLabel(info_frame, text=f"Precio: S/. {self.producto['precio']:,.2f}", font=("Quicksand", 12)).pack(anchor="w", padx=10, pady=(5, 10))
+
         # Campo de nuevo stock
-        ctk.CTkLabel(self, text="Nuevo stock:", font=("Quicksand", 12, "bold")).pack(pady=(20, 5))
-        self.stock_entry = ctk.CTkEntry(self, width=200)
-        self.stock_entry.pack(pady=5)
+        entry_frame = ctk.CTkFrame(self, fg_color="transparent")
+        entry_frame.pack(fill="x", padx=30, pady=(10, 0))
+        ctk.CTkLabel(entry_frame, text="Nuevo stock:", font=("Quicksand", 13, "bold")).pack(anchor="w", padx=5, pady=(0, 5))
+        self.stock_entry = ctk.CTkEntry(entry_frame, width=220, font=("Quicksand", 13))
+        self.stock_entry.pack(anchor="w", padx=5, pady=(0, 10))
         self.stock_entry.insert(0, str(self.producto['stock_actual']))
-        
+
         # Botones
         buttons_frame = ctk.CTkFrame(self, fg_color="transparent")
-        buttons_frame.pack(fill="x", padx=20, pady=20)
-        
-        ctk.CTkButton(buttons_frame, text="Actualizar", 
-                     command=self.actualizar_stock, 
-                     fg_color="#4CAF50").pack(side="right", padx=5)
-        ctk.CTkButton(buttons_frame, text="Cancelar", 
-                     command=self.destroy).pack(side="right", padx=5)
+        buttons_frame.pack(fill="x", padx=30, pady=25)
+        ctk.CTkButton(buttons_frame, text="Actualizar", command=self.actualizar_stock, fg_color="#4CAF50", font=("Quicksand", 13, "bold"), width=120, height=38).pack(side="right", padx=10)
+        ctk.CTkButton(buttons_frame, text="Cancelar", command=self.destroy, font=("Quicksand", 13), width=100, height=38).pack(side="right", padx=10)
         
     def actualizar_stock(self):
-        """Actualizar stock del producto"""
+        """Actualizar stock del producto usando la API set_stock"""
         try:
             nuevo_stock = int(self.stock_entry.get())
             if nuevo_stock < 0:
                 raise ValueError("El stock no puede ser negativo")
-                
-            self.callback(self.producto['id'], nuevo_stock)
-            messagebox.showinfo("Éxito", "Stock actualizado correctamente")
-            self.destroy()
-            
+
+            # Llamada a la API para establecer el stock
+            token = SessionManager.get_token()
+            headers = {'Authorization': f'Bearer {token}'} if token else {}
+            url = INVENTORY_MANAGEMENT_ENDPOINTS['inventory']['set_stock'].format(id=self.producto['id'])
+            payload = {'cantidad_disponible': nuevo_stock}
+            response = APIHandler.make_request('PATCH', url, headers=headers, data=payload)
+
+            if response['status_code'] == 200:
+                self.callback(self.producto['id'], nuevo_stock)
+                messagebox.showinfo("Éxito", "Stock actualizado correctamente")
+                self.destroy()
+            else:
+                msg = response.get('data', 'Error desconocido')
+                messagebox.showerror("Error", f"Error al actualizar stock: {msg}")
         except ValueError as e:
             messagebox.showerror("Error", f"Valor inválido: {str(e)}")
         except Exception as e:
@@ -707,65 +714,74 @@ class ModalCambiarStock(ctk.CTkToplevel):
         """Configurar propiedades del modal"""
         titulo = "Aumentar Stock" if self.accion == "aumentar" else "Reducir Stock"
         self.title(titulo)
-        self.geometry("400x300")
+        self.geometry("500x400")  # Más grande y uniforme
         self.resizable(False, False)
         self.transient(self.parent)
-        self.grab_set()
+        self.after_idle(self.grab_set)
         self.center_window()
         
     def setup_ui(self):
         """Configurar interfaz del modal"""
         # Título
         titulo_text = f"{'Aumentar' if self.accion == 'aumentar' else 'Reducir'} Stock"
-        titulo = ctk.CTkLabel(self, text=titulo_text, font=("Quicksand", 18, "bold"))
-        titulo.pack(pady=20)
-        
-        # Información del producto
-        info_frame = ctk.CTkFrame(self)
-        info_frame.pack(fill="x", padx=20, pady=10)
-        
-        ctk.CTkLabel(info_frame, text=f"Producto: {self.producto['nombre']}", 
-                    font=("Quicksand", 12, "bold")).pack(pady=5)
-        ctk.CTkLabel(info_frame, text=f"Stock actual: {self.producto['stock_actual']}", 
-                    font=("Quicksand", 12)).pack(pady=5)
-        
+        titulo = ctk.CTkLabel(self, text=titulo_text, font=("Quicksand", 20, "bold"))
+        titulo.pack(pady=(20, 10))
+
+        # Información del producto en un frame destacado
+        info_frame = ctk.CTkFrame(self, fg_color="#F5F5F5", corner_radius=10)
+        info_frame.pack(fill="x", padx=30, pady=10)
+        ctk.CTkLabel(info_frame, text=f"Producto:", font=("Quicksand", 13, "bold"), anchor="w").pack(anchor="w", padx=10, pady=(10, 0))
+        ctk.CTkLabel(info_frame, text=self.producto['nombre'], font=("Quicksand", 13), anchor="w").pack(anchor="w", padx=20)
+        ctk.CTkLabel(info_frame, text=f"Categoría: {self.producto.get('categoria', '-')}", font=("Quicksand", 12)).pack(anchor="w", padx=10, pady=(5, 0))
+        ctk.CTkLabel(info_frame, text=f"Stock actual: {self.producto['stock_actual']}", font=("Quicksand", 12)).pack(anchor="w", padx=10, pady=(5, 0))
+        ctk.CTkLabel(info_frame, text=f"Precio: S/. {self.producto['precio']:,.2f}", font=("Quicksand", 12)).pack(anchor="w", padx=10, pady=(5, 10))
+
         # Campo de cantidad
+        entry_frame = ctk.CTkFrame(self, fg_color="transparent")
+        entry_frame.pack(fill="x", padx=30, pady=(10, 0))
         cantidad_text = f"Cantidad a {'aumentar' if self.accion == 'aumentar' else 'reducir'}:"
-        ctk.CTkLabel(self, text=cantidad_text, font=("Quicksand", 12, "bold")).pack(pady=(20, 5))
-        self.cantidad_entry = ctk.CTkEntry(self, width=200)
-        self.cantidad_entry.pack(pady=5)
-        
+        ctk.CTkLabel(entry_frame, text=cantidad_text, font=("Quicksand", 13, "bold")).pack(anchor="w", padx=5, pady=(0, 5))
+        self.cantidad_entry = ctk.CTkEntry(entry_frame, width=220, font=("Quicksand", 13))
+        self.cantidad_entry.pack(anchor="w", padx=5, pady=(0, 10))
+
         # Botones
         buttons_frame = ctk.CTkFrame(self, fg_color="transparent")
-        buttons_frame.pack(fill="x", padx=20, pady=20)
-        
+        buttons_frame.pack(fill="x", padx=30, pady=25)
         color = "#4CAF50" if self.accion == "aumentar" else "#FF6B6B"
-        ctk.CTkButton(buttons_frame, text="Aplicar", 
-                     command=self.aplicar_cambio, 
-                     fg_color=color).pack(side="right", padx=5)
-        ctk.CTkButton(buttons_frame, text="Cancelar", 
-                     command=self.destroy).pack(side="right", padx=5)
+        ctk.CTkButton(buttons_frame, text="Aplicar", command=self.aplicar_cambio, fg_color=color, font=("Quicksand", 13, "bold"), width=120, height=38).pack(side="right", padx=10)
+        ctk.CTkButton(buttons_frame, text="Cancelar", command=self.destroy, font=("Quicksand", 13), width=100, height=38).pack(side="right", padx=10)
         
     def aplicar_cambio(self):
-        """Aplicar cambio en el stock"""
+        """Aplicar cambio en el stock usando la API correspondiente"""
         try:
             cantidad = int(self.cantidad_entry.get())
             if cantidad <= 0:
                 raise ValueError("La cantidad debe ser mayor a 0")
-                
+
             stock_actual = self.producto['stock_actual']
-            
+            token = SessionManager.get_token()
+            headers = {'Authorization': f'Bearer {token}'} if token else {}
+
             if self.accion == "aumentar":
+                url = INVENTORY_MANAGEMENT_ENDPOINTS['inventory']['increase_stock'].format(id=self.producto['id'])
+                payload = {'cantidad_disponible': cantidad}
                 nuevo_stock = stock_actual + cantidad
             else:  # reducir
-                nuevo_stock = stock_actual - cantidad
-                if nuevo_stock < 0:
+                if cantidad > stock_actual:
                     raise ValueError("No se puede reducir más stock del disponible")
-                    
-            self.callback(self.producto['id'], nuevo_stock)
-            messagebox.showinfo("Éxito", f"Stock {'aumentado' if self.accion == 'aumentar' else 'reducido'} correctamente")
-            self.destroy()
-            
+                url = INVENTORY_MANAGEMENT_ENDPOINTS['inventory']['decrease_stock'].format(id=self.producto['id'])
+                payload = {'cantidad_disponible': cantidad}
+                nuevo_stock = stock_actual - cantidad
+
+            response = APIHandler.make_request('PATCH', url, headers=headers, data=payload)
+
+            if response['status_code'] == 200:
+                self.callback(self.producto['id'], nuevo_stock)
+                messagebox.showinfo("Éxito", f"Stock {'aumentado' if self.accion == 'aumentar' else 'reducido'} correctamente")
+                self.destroy()
+            else:
+                msg = response.get('data', 'Error desconocido')
+                messagebox.showerror("Error", f"Error al cambiar stock: {msg}")
         except ValueError as e:
             messagebox.showerror("Error", f"Valor inválido: {str(e)}")
         except Exception as e:
@@ -798,7 +814,7 @@ class ModalDetalleStock(ctk.CTkToplevel):
         self.geometry("500x400")
         self.resizable(False, False)
         self.transient(self.parent)
-        self.grab_set()
+        self.after_idle(self.grab_set)
         self.center_window()
         
     def setup_ui(self):
