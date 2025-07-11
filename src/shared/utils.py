@@ -53,27 +53,34 @@ class APIHandler:
             method = method.lower()
             if headers is None:
                 headers = {}
-                
+
             # Agregar token de autenticación si está disponible
             token = APIHandler._get_auth_token()
             if token:
                 headers['Authorization'] = f'Bearer {token}'
-                
-            # Agregar Content-Type para JSON si no está presente
+
+            # Agregar Content-Type para JSON si no está presente y no hay files
             if method in ['post', 'put', 'patch'] and 'Content-Type' not in headers and not files:
                 headers['Content-Type'] = 'application/json'
-                
+
             # Agregar Accept header para solicitar JSON
             if 'Accept' not in headers:
                 headers['Accept'] = 'application/json'
-                
+
             print(f"APIHandler: {method.upper()} {url}")
             print(f"Headers: {headers}")
             if params:
                 print(f"Params: {params}")
             if data:
-                print(f"Data: {data}")
-                
+                print(f"Data (before coercion): {data}")
+            if files:
+                print(f"Files: {files}")
+
+            # Coerce all data values to strings if files are present (for multipart/form-data)
+            if files and data:
+                data = {k: '' if v is None else str(v) for k, v in data.items()}
+                print(f"Data (after coercion to str): {data}")
+
             if method == 'get':
                 response = requests.get(url, headers=headers, params=params, timeout=30)
             elif method == 'post':
@@ -82,9 +89,16 @@ class APIHandler:
                 else:
                     response = requests.post(url, headers=headers, json=data, timeout=30)
             elif method == 'put':
-                response = requests.put(url, headers=headers, json=data, timeout=30)
+                if files:
+                    # Enviar como multipart/form-data si hay files
+                    response = requests.put(url, headers={k: v for k, v in headers.items() if k.lower() != 'content-type'}, data=data, files=files, timeout=30)
+                else:
+                    response = requests.put(url, headers=headers, json=data, timeout=30)
             elif method == 'patch':
-                response = requests.patch(url, headers=headers, json=data, timeout=30)
+                if files:
+                    response = requests.patch(url, headers={k: v for k, v in headers.items() if k.lower() != 'content-type'}, data=data, files=files, timeout=30)
+                else:
+                    response = requests.patch(url, headers=headers, json=data, timeout=30)
             elif method == 'delete':
                 response = requests.delete(url, headers=headers, timeout=30)
             else:
@@ -92,7 +106,7 @@ class APIHandler:
 
             print(f"Response status: {response.status_code}")
             print(f"Response headers: {dict(response.headers)}")
-            
+
             # Intentar decodificar JSON, si falla devolver estructura consistente
             try:
                 resp_json = response.json()
@@ -106,7 +120,7 @@ class APIHandler:
                     'raw_response': response.text[:1000],  # Limitar el texto
                     'content_type': response.headers.get('content-type', 'unknown')
                 }
-            
+
             return {
                 'status_code': response.status_code,
                 'data': resp_json

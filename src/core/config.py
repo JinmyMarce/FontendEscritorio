@@ -46,6 +46,7 @@ INVENTORY_MANAGEMENT_ENDPOINTS = {
         'update': f"{API_BASE_URL}/admin/products/{{id}}",  # PUT - Actualizar producto completo
         'partial_update': f"{API_BASE_URL}/admin/products/{{id}}",  # PATCH - Actualización parcial
         'delete': f"{API_BASE_URL}/admin/products/{{id}}",  # DELETE - Eliminar producto
+        'update_image': f"{API_BASE_URL}/admin/products/{{id}}/update-image",  # POST - Actualizar producto con imagen (workaround)
         'update_status': f"{API_BASE_URL}/admin/products/{{id}}/status",  # PATCH - Actualizar estado
         'low_stock': f"{API_BASE_URL}/admin/products/low-stock"  # GET - Productos con stock bajo
     },

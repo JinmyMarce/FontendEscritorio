@@ -564,14 +564,18 @@ class ProductsSection(ctk.CTkFrame):
             print(f"Datos a enviar: {data}")
             
             files = {}
+            # DEPURACIÓN: Mostrar el valor de imagen_path y su tipo
+            print(f"[DEPURACIÓN] datos_producto['imagen_path']: {datos_producto.get('imagen_path')}")
+            print(f"[DEPURACIÓN] type(imagen_path): {type(datos_producto.get('imagen_path'))}")
+            print(f"[DEPURACIÓN] imagen_path existe? {'imagen_path' in datos_producto}")
+            print(f"[DEPURACIÓN] imagen_path es string no vacío? {bool(datos_producto.get('imagen_path')) and isinstance(datos_producto.get('imagen_path'), str)}")
             # Si hay imagen nueva, prepararla para upload
-            if datos_producto.get('imagen_path'):
+            if datos_producto.get('imagen_path') and isinstance(datos_producto.get('imagen_path'), str) and os.path.isfile(datos_producto['imagen_path']):
+                print(f"[DEPURACIÓN] Se intentará abrir la imagen: {datos_producto['imagen_path']}")
                 try:
                     with open(datos_producto['imagen_path'], 'rb') as f:
                         files['imagen'] = ('image.jpg', f, 'image/jpeg')
-                        
                         print("Enviando actualización con imagen...")
-                        
                         # Usar requests directamente para multipart/form-data con PUT
                         response = requests.put(
                             url,
@@ -579,10 +583,8 @@ class ProductsSection(ctk.CTkFrame):
                             files=files,
                             headers={'Authorization': f'Bearer {token}'} if token else {}
                         )
-                        
                         print(f"Respuesta status: {response.status_code}")
                         print(f"Respuesta headers: {dict(response.headers)}")
-                        
                         if response.status_code == 200:
                             messagebox.showinfo("Éxito", "Producto actualizado exitosamente")
                             self.cargar_productos()
@@ -597,7 +599,7 @@ class ProductsSection(ctk.CTkFrame):
                                     error_details = []
                                     for field, messages in error_data['errors'].items():
                                         if isinstance(messages, list):
-                                            error_details.extend([f"{field}: msg" for msg in messages])
+                                            error_details.extend([f"{field}: {msg}" for msg in messages])
                                         else:
                                             error_details.append(f"{field}: {messages}")
                                     error_msg += "\n\nDetalles:\n" + "\n".join(error_details)
@@ -605,18 +607,15 @@ class ProductsSection(ctk.CTkFrame):
                                 error_msg = f"Error al actualizar producto (Código: {response.status_code})\nRespuesta: {response.text}"
                             messagebox.showerror("Error de Validación", error_msg)
                             return False
-                            
                 except Exception as e:
+                    print(f"[DEPURACIÓN] Error al abrir o enviar la imagen: {str(e)}")
                     messagebox.showerror("Error", f"Error al cargar imagen: {str(e)}")
                     return False
             else:
-                print("Enviando actualización sin imagen...")
-                
+                print("[DEPURACIÓN] No se encontró imagen nueva válida para actualizar. Enviando actualización sin imagen...")
                 # Sin imagen nueva, usar APIHandler normal con PUT
                 response = APIHandler.make_request('PUT', url, headers=headers, data=data)
-                
                 print(f"Respuesta APIHandler: {response}")
-                
                 if response['status_code'] == 200:
                     messagebox.showinfo("Éxito", "Producto actualizado exitosamente")
                     self.cargar_productos()
@@ -624,19 +623,12 @@ class ProductsSection(ctk.CTkFrame):
                 else:
                     error_data = response.get('data', {})
                     error_msg = error_data.get('message', 'Error al actualizar producto')
-                    
                     # Si hay detalles de validación, mostrarlos
                     if isinstance(error_data, dict) and 'errors' in error_data:
-                        error_details = []
-                        for field, messages in error_data['errors'].items():
-                            if isinstance(messages, list):
-                                error_details.extend([f"{field}: msg" for msg in messages])
-                            else:
-                                error_details.append(f"{field}: {messages}")
-                        error_msg += "\n\nDetalles:\n" + "\n".join(error_details)
-                    
+                        print(f"[DEPURACIÓN] Errores de validación: {error_data['errors']}")
                     messagebox.showerror("Error de Validación", error_msg)
                     return False
+            # El bloque else duplicado ha sido eliminado para evitar error de sintaxis y duplicidad lógica.
                     
         except Exception as e:
             print(f"Excepción en actualizar_producto_modal: {str(e)}")
@@ -644,85 +636,73 @@ class ProductsSection(ctk.CTkFrame):
             return False
 
     def actualizar_producto_modal_patch(self, producto_id, datos_producto):
-        """Callback alternativo usando PATCH en lugar de PUT"""
+        """
+        Callback robusto para actualizar productos:
+        - Si hay imagen nueva, usa POST a /products/{id}/update-image (ver backend workaround)
+        - Si no hay imagen nueva, usa PATCH a partial_update
+        """
+        import os
         try:
-            url = INVENTORY_MANAGEMENT_ENDPOINTS['products']['partial_update'].format(id=producto_id)
+            imagen_path = datos_producto.get('imagen_path')
             token = SessionManager.get_token()
             headers = {'Authorization': f'Bearer {token}'} if token else {}
-            
-            # Preparar datos para envío - solo campos que han cambiado
-            data = {}
-            
-            # Agregar solo los campos básicos necesarios
-            if datos_producto.get('nombre'):
-                data['nombre'] = str(datos_producto['nombre'])
-            if datos_producto.get('descripcion'):
-                data['descripcion'] = str(datos_producto['descripcion'])
-            if datos_producto.get('precio'):
-                data['precio'] = float(datos_producto['precio'])  # Probar como número
-            if datos_producto.get('peso'):
-                data['peso'] = str(datos_producto['peso'])
-            if datos_producto.get('categoria_id'):
-                data['categorias_id_categoria'] = int(datos_producto['categoria_id'])  # Probar como número
-            
-            # Debug: Imprimir datos que se van a enviar
-            print(f"Actualizando producto ID: {producto_id} con PATCH")
-            print(f"URL: {url}")
-            print(f"Datos a enviar: {data}")
-            
-            files = {}
-            # Si hay imagen nueva, prepararla para upload
-            if datos_producto.get('imagen_path'):
+
+            # Preparar datos para envío (siempre los campos requeridos, nunca None)
+            data = {
+                'nombre': str(datos_producto.get('nombre', '') or ''),
+                'descripcion': str(datos_producto.get('descripcion', '') or ''),
+                'precio': str(datos_producto.get('precio', '') or ''),
+                'peso': str(datos_producto.get('peso', '') or ''),
+                'categorias_id_categoria': str(datos_producto.get('categoria_id', '') or ''),
+                'estado': str(datos_producto.get('estado', 'activo') or 'activo')
+            }
+
+            # Si hay imagen nueva, usar POST a update-image
+            if imagen_path and isinstance(imagen_path, str) and os.path.isfile(imagen_path):
+                url = INVENTORY_MANAGEMENT_ENDPOINTS['products']['update_image'].format(id=producto_id)
+                print(f"[DEBUG POST] Actualizando producto ID: {producto_id} (con imagen)")
+                print(f"[DEBUG POST] URL: {url}")
+                print(f"[DEBUG POST] Datos a enviar: {data}")
+                print(f"[DEBUG POST] imagen_path: {imagen_path}")
                 try:
-                    with open(datos_producto['imagen_path'], 'rb') as f:
-                        files['imagen'] = ('image.jpg', f, 'image/jpeg')
-                        
-                        print("Enviando actualización PATCH con imagen...")
-                        
-                        # Usar requests directamente para multipart/form-data con PATCH
-                        response = requests.patch(
-                            url,
-                            data=data,
-                            files=files,
-                            headers={'Authorization': f'Bearer {token}'} if token else {}
-                        )
-                        
-                        print(f"Respuesta status: {response.status_code}")
-                        print(f"Respuesta text: {response.text}")
-                        
-                        if response.status_code == 200:
-                            messagebox.showinfo("Éxito", "Producto actualizado exitosamente")
-                            self.cargar_productos()
-                            return True
-                        else:
-                            try:
-                                error_data = response.json()
-                                print(f"Error response data: {error_data}")
-                                error_msg = error_data.get('message', 'Error al actualizar producto')
-                                if 'errors' in error_data:
-                                    error_details = []
-                                    for field, messages in error_data['errors'].items():
-                                        if isinstance(messages, list):
-                                            error_details.extend([f"{field}: {msg}" for msg in messages])
-                                        else:
-                                            error_details.append(f"{field}: {messages}")
-                                    error_msg += "\n\nDetalles:\n" + "\n".join(error_details)
-                            except:
-                                error_msg = f"Error al actualizar producto (Código: {response.status_code})\nRespuesta: {response.text}"
-                            messagebox.showerror("Error de Validación (PATCH)", error_msg)
-                            return False
-                            
+                    files = {'imagen': (os.path.basename(imagen_path), open(imagen_path, 'rb'), 'application/octet-stream')}
+                    response = APIHandler.make_request('POST', url, headers=headers, data=data, files=files)
+                    print(f"[DEBUG POST] Respuesta APIHandler POST (con imagen): {response}")
+                    if response['status_code'] == 200:
+                        messagebox.showinfo("Éxito", "Producto actualizado exitosamente")
+                        self.cargar_productos()
+                        return True
+                    else:
+                        error_data = response.get('data', {})
+                        error_msg = error_data.get('message', 'Error al actualizar producto')
+                        if isinstance(error_data, dict) and 'errors' in error_data:
+                            error_details = []
+                            for field, messages in error_data['errors'].items():
+                                if isinstance(messages, list):
+                                    error_details.extend(messages)
+                                else:
+                                    error_details.append(str(messages))
+                            error_msg += "\n\nDetalles:\n" + "\n".join(error_details)
+                        messagebox.showerror("Error de Validación (POST)", error_msg)
+                        return False
                 except Exception as e:
+                    print(f"[DEBUG POST] Error al abrir/enviar imagen: {str(e)}")
                     messagebox.showerror("Error", f"Error al cargar imagen: {str(e)}")
                     return False
+                finally:
+                    if 'files' in locals() and files and 'imagen' in files and hasattr(files['imagen'][1], 'close'):
+                        try:
+                            files['imagen'][1].close()
+                        except Exception:
+                            pass
             else:
-                print("Enviando actualización PATCH sin imagen...")
-                
-                # Sin imagen nueva, usar APIHandler normal con PATCH
+                # Sin imagen nueva, usar PATCH y endpoint partial_update
+                url = INVENTORY_MANAGEMENT_ENDPOINTS['products']['partial_update'].format(id=producto_id)
+                print(f"[DEBUG PATCH] Actualizando producto ID: {producto_id} (sin imagen)")
+                print(f"[DEBUG PATCH] URL: {url}")
+                print(f"[DEBUG PATCH] Datos a enviar: {data}")
                 response = APIHandler.make_request('PATCH', url, headers=headers, data=data)
-                
-                print(f"Respuesta APIHandler PATCH: {response}")
-                
+                print(f"[DEBUG PATCH] Respuesta APIHandler PATCH (sin imagen): {response}")
                 if response['status_code'] == 200:
                     messagebox.showinfo("Éxito", "Producto actualizado exitosamente")
                     self.cargar_productos()
@@ -730,22 +710,19 @@ class ProductsSection(ctk.CTkFrame):
                 else:
                     error_data = response.get('data', {})
                     error_msg = error_data.get('message', 'Error al actualizar producto')
-                    
                     if isinstance(error_data, dict) and 'errors' in error_data:
                         error_details = []
                         for field, messages in error_data['errors'].items():
                             if isinstance(messages, list):
-                                error_details.extend([f"{field}: msg" for msg in messages])
+                                error_details.extend(messages)
                             else:
-                                error_details.append(f"{field}: {messages}")
+                                error_details.append(str(messages))
                         error_msg += "\n\nDetalles:\n" + "\n".join(error_details)
-                    
                     messagebox.showerror("Error de Validación (PATCH)", error_msg)
                     return False
-                    
         except Exception as e:
-            print(f"Excepción en actualizar_producto_modal_patch: {str(e)}")
-            messagebox.showerror("Error", f"Error al actualizar producto (PATCH): {str(e)}")
+            print(f"[DEBUG PATCH/POST] Excepción en actualizar_producto_modal_patch: {str(e)}")
+            messagebox.showerror("Error", f"Error al actualizar producto: {str(e)}")
             return False
 
     def eliminar_producto_modal(self, producto_id, nombre_producto):
@@ -1256,53 +1233,71 @@ class ModalProducto(ctk.CTkToplevel):
         ).pack(side="right", padx=15)
     
     def seleccionar_imagen(self):
-        """Seleccionar archivo de imagen"""
+        """Seleccionar archivo de imagen y mostrar preview"""
         try:
-            tipos_archivo = [
-                ("Imágenes", "*.jpg *.jpeg *.png *.gif *.bmp *.webp"),
-                ("JPEG", "*.jpg *.jpeg"),
-                ("PNG", "*.png"),
+            filetypes = [
+                ("Imágenes", "*.png *.jpg *.jpeg *.gif *.webp"),
                 ("Todos los archivos", "*.*")
             ]
-            
-            archivo = filedialog.askopenfilename(
-                title="Seleccionar imagen del producto",
-                filetypes=tipos_archivo
+            ruta = filedialog.askopenfilename(
+                title="Seleccionar imagen",
+                filetypes=filetypes
             )
-            
-            if archivo:
-                self.imagen_path = archivo
-                nombre_archivo = os.path.basename(archivo)
-                
-                # Mostrar mensaje indicando que se seleccionó una nueva imagen
-                if self.es_edicion:
-                    self.imagen_label.configure(text=f"Nueva imagen: {nombre_archivo}")
-                    self.btn_seleccionar_imagen.configure(text="📷 Cambiar Imagen")
-                else:
-                    self.imagen_label.configure(text=f"Imagen seleccionada: {nombre_archivo}")
-                    self.btn_seleccionar_imagen.configure(text="📷 Cambiar Imagen")
-                
-                # Mostrar preview de la nueva imagen
-                self.mostrar_preview_imagen(archivo)
-                
+            if ruta:
+                self.imagen_path = ruta
+                self.mostrar_preview_imagen(ruta)
+                # Cambiar texto del botón para indicar que hay imagen nueva
+                self.btn_seleccionar_imagen.configure(text="📷 Cambiar Imagen (Nueva)")
+            else:
+                self.imagen_path = None
         except Exception as e:
             messagebox.showerror("Error", f"Error al seleccionar imagen: {str(e)}")
-    
+
     def mostrar_preview_imagen(self, ruta_imagen):
         """Mostrar preview de la imagen seleccionada"""
         try:
-            # Cargar y redimensionar imagen para preview
-            imagen = Image.open(ruta_imagen)
-            imagen.thumbnail((150, 150), Image.Resampling.LANCZOS)
-            
-            # Convertir a PhotoImage
-            self.imagen_preview = ImageTk.PhotoImage(imagen)
-            
-            # Actualizar label con la imagen
+            img = Image.open(ruta_imagen)
+            img.thumbnail((300, 300), Image.Resampling.LANCZOS)
+            self.imagen_preview = ImageTk.PhotoImage(img)
             self.imagen_label.configure(image=self.imagen_preview, text="")
-            
+            self.imagen_label.image = self.imagen_preview
         except Exception as e:
-            print(f"Error al mostrar preview: {str(e)}")
+            self.imagen_label.configure(text="No se pudo cargar la imagen", image=None)
+            self.imagen_label.image = None
+
+    def actualizar_producto(self):
+        """Lógica para actualizar producto desde el modal (llama callback_guardar)"""
+        if not self.callback_guardar:
+            messagebox.showerror("Error", "No se ha definido la función de guardado.")
+            return
+        datos_producto = self.obtener_datos_producto()
+        # Importante: pasar la ruta de la imagen seleccionada
+        if self.imagen_path:
+            datos_producto['imagen_path'] = self.imagen_path
+        producto_id = self.producto.get('id_producto') if self.producto else None
+        if producto_id:
+            self.callback_guardar(producto_id, datos_producto)
+            self.destroy()
+
+    def obtener_datos_producto(self):
+        """Recolecta los datos del formulario para crear/editar producto"""
+        datos = {}
+        if hasattr(self, 'id_entry'):
+            datos['id_producto'] = self.id_entry.get()
+        datos['nombre'] = self.nombre_entry.get().strip()
+        datos['descripcion'] = self.descripcion_text.get("1.0", "end").strip()
+        datos['precio'] = self.precio_entry.get().strip()
+        datos['peso'] = self.peso_entry.get().strip()
+        # Obtener categoría seleccionada
+        cat_nombre = self.categoria_dropdown.get()
+        cat_id = None
+        for cat in self.categorias:
+            if cat.get('nombre') == cat_nombre:
+                cat_id = cat.get('id_categoria')
+                break
+        datos['categoria_id'] = cat_id
+        datos['stock'] = self.stock_entry.get().strip() if hasattr(self, 'stock_entry') else ''
+        return datos
     
     def llenar_campos(self):
         """Llenar campos con datos de producto existente"""
@@ -1421,7 +1416,6 @@ class ModalProducto(ctk.CTkToplevel):
         if errores:
             messagebox.showerror("Error de validación", "\n".join(errores))
             return
-        
         try:
             # Preparar datos
             datos_producto = {
@@ -1432,17 +1426,19 @@ class ModalProducto(ctk.CTkToplevel):
                 'categoria_id': self.obtener_categoria_id(),
                 'stock': self.stock_entry.get().strip() or '0'
             }
-            
-            # Agregar imagen si existe una nueva seleccionada
+            # Si hay imagen nueva seleccionada, agregarla
             if self.imagen_path:
                 datos_producto['imagen_path'] = self.imagen_path
-            
             # Llamar callback con el ID del producto
             if self.callback_guardar:
                 producto_id = self.producto.get('id_producto')
-                if self.callback_guardar(producto_id, datos_producto):
+                resultado = self.callback_guardar(producto_id, datos_producto)
+                if resultado:
+                    # Si la actualización fue exitosa, actualizar la UI
                     self.cerrar_modal()
-                    
+                else:
+                    # Si hubo error, mantener el modal abierto
+                    pass
         except Exception as e:
             messagebox.showerror("Error", f"Error al actualizar producto: {str(e)}")
     
@@ -1489,45 +1485,37 @@ class ModalProducto(ctk.CTkToplevel):
         try:
             if not self.es_edicion or not self.producto:
                 return
-                
+            # Usar la función utilitaria para obtener la URL completa
+            from src.shared.utils import get_full_image_url
             url_imagen = self.producto.get('url_imagen_completa') or self.producto.get('url_imagen')
-            
+            url_imagen = get_full_image_url(url_imagen) if url_imagen else None
             if url_imagen and url_imagen != 'productos/default.jpg':
-                # Intentar cargar imagen desde URL
                 try:
+                    import requests
                     response = requests.get(url_imagen, timeout=10)
                     if response.status_code == 200:
                         from io import BytesIO
                         imagen_data = BytesIO(response.content)
                         imagen = Image.open(imagen_data)
-                        
-                        # Redimensionar imagen para preview
                         imagen.thumbnail((150, 150), Image.Resampling.LANCZOS)
-                        
-                        # Convertir a PhotoImage
                         self.imagen_preview = ImageTk.PhotoImage(imagen)
-                        
-                        # Actualizar label con la imagen
-                        self.imagen_label.configure(
-                            image=self.imagen_preview, 
-                            text=""
-                        )
-                        
-                        # Cambiar texto del botón
+                        self.imagen_label.configure(image=self.imagen_preview, text="")
+                        self.imagen_label.image = self.imagen_preview
                         self.btn_seleccionar_imagen.configure(text="📷 Cambiar Imagen")
-                        
                     else:
-                        self.imagen_label.configure(text="No se pudo cargar la imagen actual")
-                        
+                        self.imagen_label.configure(text="No se pudo cargar la imagen actual", image=None)
+                        self.imagen_label.image = None
                 except Exception as e:
                     print(f"Error al cargar imagen actual: {str(e)}")
-                    self.imagen_label.configure(text="Error al cargar imagen actual")
+                    self.imagen_label.configure(text="Error al cargar imagen actual", image=None)
+                    self.imagen_label.image = None
             else:
-                self.imagen_label.configure(text="Sin imagen actual")
-                
+                self.imagen_label.configure(text="Sin imagen actual", image=None)
+                self.imagen_label.image = None
         except Exception as e:
             print(f"Error en cargar_imagen_actual: {str(e)}")
-            self.imagen_label.configure(text="Error al cargar imagen")
+            self.imagen_label.configure(text="Error al cargar imagen", image=None)
+            self.imagen_label.image = None
         
 
 class ModalDetalleProducto(ctk.CTkToplevel):
@@ -1771,19 +1759,3 @@ class ModalDetalleProducto(ctk.CTkToplevel):
             self.geometry(f"{width}x{height}+{x}+{y}")
         except Exception as e:
             print(f"Error al centrar ventana: {str(e)}")
-
-# Función para testing independiente
-if __name__ == "__main__":
-    app = ctk.CTk()
-    app.geometry("800x600")
-    app.title("Test - Sección de Productos")
-    
-    # Configurar grid
-    app.grid_rowconfigure(0, weight=1)
-    app.grid_columnconfigure(0, weight=1)
-    
-    # Crear sección de productos
-    products_section = ProductsSection(app)
-    products_section.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
-    
-    app.mainloop()
