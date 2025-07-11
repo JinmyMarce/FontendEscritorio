@@ -5,7 +5,7 @@ import tkinter.messagebox as messagebox
 from datetime import datetime
 import os
 from src.core.config import INVENTORY_MANAGEMENT_ENDPOINTS, STOCK_OPERATIONS_CONFIG
-from src.shared.utils import APIHandler, SessionManager
+from src.shared.utils import APIHandler, SessionManager, get_full_image_url
 
 def es_wayland():
     """Detectar si estamos ejecutando en Wayland"""
@@ -617,8 +617,9 @@ class ModalGestionStock(ctk.CTkToplevel):
             url_imagen = producto.get('url_imagen') or producto.get('imagen')
             if url_imagen and url_imagen != 'productos/default.jpg':
                 try:
-                    if url_imagen.startswith('http'):
-                        response = requests.get(url_imagen, timeout=8)
+                    full_url = get_full_image_url(url_imagen)
+                    if full_url and (full_url.startswith('http://') or full_url.startswith('https://')):
+                        response = requests.get(full_url, timeout=8)
                         if response.status_code == 200:
                             imagen_data = BytesIO(response.content)
                             imagen = Image.open(imagen_data)
@@ -629,7 +630,7 @@ class ModalGestionStock(ctk.CTkToplevel):
                         else:
                             image_label.configure(text="No imagen")
                     else:
-                        imagen = Image.open(url_imagen)
+                        imagen = Image.open(full_url)
                         imagen.thumbnail((60, 60), Image.Resampling.LANCZOS)
                         imagen_preview = ImageTk.PhotoImage(imagen)
                         image_label.configure(image=imagen_preview, text="")
@@ -714,24 +715,20 @@ class ModalEditarStock(ctk.CTkToplevel):
 
         # Cargar imagen del producto
         url_imagen = self.producto.get('url_imagen') or self.producto.get('imagen')
-        if url_imagen and url_imagen != 'productos/default.jpg':
+        full_url = get_full_image_url(url_imagen)
+        if full_url and url_imagen != 'productos/default.jpg':
             try:
-                if url_imagen.startswith('http'):
-                    response = requests.get(url_imagen, timeout=8)
-                    if response.status_code == 200:
-                        imagen_data = BytesIO(response.content)
-                        imagen = Image.open(imagen_data)
-                        imagen.thumbnail((140, 140), Image.Resampling.LANCZOS)
-                        self.imagen_preview = ImageTk.PhotoImage(imagen)
-                        self.imagen_label.configure(image=self.imagen_preview, text="")
-                    else:
-                        self.imagen_label.configure(text="No se pudo cargar la imagen")
-                else:
-                    # Intentar cargar local
-                    imagen = Image.open(url_imagen)
+                # Siempre intentamos descargar la imagen remotamente
+                response = requests.get(full_url, timeout=8)
+                if response.status_code == 200:
+                    imagen_data = BytesIO(response.content)
+                    imagen = Image.open(imagen_data)
                     imagen.thumbnail((140, 140), Image.Resampling.LANCZOS)
                     self.imagen_preview = ImageTk.PhotoImage(imagen)
                     self.imagen_label.configure(image=self.imagen_preview, text="")
+                    self.imagen_label.image = self.imagen_preview
+                else:
+                    self.imagen_label.configure(text="No se pudo cargar la imagen")
             except Exception as e:
                 self.imagen_label.configure(text="No se pudo cargar la imagen")
         else:
@@ -860,24 +857,19 @@ class ModalCambiarStock(ctk.CTkToplevel):
 
         # Cargar imagen del producto
         url_imagen = self.producto.get('url_imagen') or self.producto.get('imagen')
-        if url_imagen and url_imagen != 'productos/default.jpg':
+        full_url = get_full_image_url(url_imagen)
+        if full_url and url_imagen != 'productos/default.jpg':
             try:
-                if url_imagen.startswith('http'):
-                    response = requests.get(url_imagen, timeout=8)
-                    if response.status_code == 200:
-                        imagen_data = BytesIO(response.content)
-                        imagen = Image.open(imagen_data)
-                        imagen.thumbnail((140, 140), Image.Resampling.LANCZOS)
-                        self.imagen_preview = ImageTk.PhotoImage(imagen)
-                        self.imagen_label.configure(image=self.imagen_preview, text="")
-                    else:
-                        self.imagen_label.configure(text="No se pudo cargar la imagen")
-                else:
-                    # Intentar cargar local
-                    imagen = Image.open(url_imagen)
+                response = requests.get(full_url, timeout=8)
+                if response.status_code == 200:
+                    imagen_data = BytesIO(response.content)
+                    imagen = Image.open(imagen_data)
                     imagen.thumbnail((140, 140), Image.Resampling.LANCZOS)
                     self.imagen_preview = ImageTk.PhotoImage(imagen)
                     self.imagen_label.configure(image=self.imagen_preview, text="")
+                    self.imagen_label.image = self.imagen_preview
+                else:
+                    self.imagen_label.configure(text="No se pudo cargar la imagen")
             except Exception as e:
                 self.imagen_label.configure(text="No se pudo cargar la imagen")
         else:
@@ -979,17 +971,53 @@ class ModalDetalleStock(ctk.CTkToplevel):
         self.center_window()
         
     def setup_ui(self):
-        """Configurar interfaz del modal"""
+        """Configurar interfaz del modal, incluyendo la visualización de la imagen del producto"""
+        from PIL import Image, ImageTk
+        import requests
+        from io import BytesIO
+
         # Título
         titulo = ctk.CTkLabel(self, text="Detalles del Producto", 
                              font=("Quicksand", 18, "bold"))
         titulo.pack(pady=20)
-        
+
         # Frame principal
         main_frame = ctk.CTkFrame(self)
         main_frame.pack(fill="both", expand=True, padx=20, pady=10)
-        
-        # Detalles del producto
+        main_frame.grid_columnconfigure(0, weight=1)
+        main_frame.grid_columnconfigure(1, weight=1)
+
+        # Imagen del producto (izquierda)
+        image_frame = ctk.CTkFrame(main_frame, fg_color="#F5F5F5", corner_radius=10, width=140, height=140)
+        image_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=0)
+        image_frame.grid_propagate(False)
+        self.imagen_label = ctk.CTkLabel(image_frame, text="Cargando imagen...", width=130, height=130)
+        self.imagen_label.pack(expand=True, fill="both", padx=5, pady=5)
+        self.imagen_preview = None
+
+        url_imagen = self.producto.get('url_imagen') or self.producto.get('imagen')
+        full_url = get_full_image_url(url_imagen)
+        if full_url and url_imagen != 'productos/default.jpg':
+            try:
+                response = requests.get(full_url, timeout=8)
+                if response.status_code == 200:
+                    imagen_data = BytesIO(response.content)
+                    imagen = Image.open(imagen_data)
+                    imagen.thumbnail((130, 130), Image.Resampling.LANCZOS)
+                    self.imagen_preview = ImageTk.PhotoImage(imagen)
+                    self.imagen_label.configure(image=self.imagen_preview, text="")
+                    self.imagen_label.image = self.imagen_preview
+                else:
+                    self.imagen_label.configure(text="No se pudo cargar la imagen")
+            except Exception as e:
+                self.imagen_label.configure(text="No se pudo cargar la imagen")
+        else:
+            self.imagen_label.configure(text="Sin imagen")
+
+        # Detalles del producto (derecha)
+        detalles_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        detalles_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=0)
+
         detalles = [
             ("ID:", self.producto['id']),
             ("Nombre:", self.producto['nombre']),
@@ -1000,14 +1028,13 @@ class ModalDetalleStock(ctk.CTkToplevel):
             ("Valor Inventario:", f"S/. {self.producto['valor_inventario']:,.2f}"),
             ("Estado:", self.producto['estado'])
         ]
-        
+
         for i, (label, value) in enumerate(detalles):
-            row_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+            row_frame = ctk.CTkFrame(detalles_frame, fg_color="transparent")
             row_frame.pack(fill="x", pady=5, padx=10)
-            
             ctk.CTkLabel(row_frame, text=label, font=("Quicksand", 12, "bold")).pack(side="left")
             ctk.CTkLabel(row_frame, text=str(value), font=("Quicksand", 12)).pack(side="right")
-        
+
         # Botón cerrar grande y centrado, con relleno
         btn_cerrar = ctk.CTkButton(
             self, text="Cerrar", command=self.destroy,

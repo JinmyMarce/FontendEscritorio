@@ -1,3 +1,25 @@
+from src.core.config import API_BASE_URL
+def get_full_image_url(image_path):
+    """
+    Devuelve la URL completa de la imagen del producto.
+    Si image_path es absoluta (http/https), la retorna igual.
+    Si es relativa, la concatena con el dominio base y /storage/.
+    Si es vacía o None, retorna None.
+    """
+    if not image_path:
+        return None
+    if image_path.startswith('http://') or image_path.startswith('https://'):
+        return image_path
+    # Obtener dominio base (sin /api ni /api/v1)
+    if '/api/' in API_BASE_URL:
+        base = API_BASE_URL.split('/api/')[0]
+    else:
+        base = API_BASE_URL.rstrip('/')
+    # Asegurar que la ruta no tenga / inicial duplicado
+    if image_path.startswith('/'):
+        image_path = image_path[1:]
+    # Siempre anteponer /storage/ para rutas relativas
+    return f"{base}/storage/{image_path}"
 from src.core.config import MESSAGES, UI_CONFIG
 import requests
 import json
