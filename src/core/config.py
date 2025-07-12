@@ -24,14 +24,54 @@ CLIENTS_ENDPOINTS = {
     'reset_password': f"{API_BASE_URL}/admin/users/{{id}}/reset-password"
 }
 
-# Endpoints de Inventario
+# Endpoints de Gestión de Inventario
+INVENTORY_MANAGEMENT_ENDPOINTS = {
+    # Endpoints de Categorías
+    'categories': {
+        'list': f"{API_BASE_URL}/admin/categories",  # GET - Listar todas las categorías
+        'create': f"{API_BASE_URL}/admin/categories",  # POST - Crear nueva categoría
+        'detail': f"{API_BASE_URL}/admin/categories/{{id}}",  # GET - Obtener detalles de categoría
+        'update': f"{API_BASE_URL}/admin/categories/{{id}}",  # PUT - Actualizar categoría completa
+        'partial_update': f"{API_BASE_URL}/admin/categories/{{id}}",  # PATCH - Actualización parcial
+        'delete': f"{API_BASE_URL}/admin/categories/{{id}}",  # DELETE - Eliminar categoría
+        'statistics': f"{API_BASE_URL}/admin/categories/statistics"  # GET - Estadísticas de categorías
+    },
+    
+    # Endpoints de Productos
+    'products': {
+        'list': f"{API_BASE_URL}/admin/products",  # GET - Listar todos los productos relacionados a sus categorias
+        'by_category': f"{API_BASE_URL}/admin/products?category_id={{category_id}}",  # GET - Productos por categoría
+        'create': f"{API_BASE_URL}/admin/products",  # POST - Crear nuevo producto
+        'detail': f"{API_BASE_URL}/admin/products/{{id}}",  # GET - Obtener detalles de producto
+        'update': f"{API_BASE_URL}/admin/products/{{id}}",  # PUT - Actualizar producto completo
+        'partial_update': f"{API_BASE_URL}/admin/products/{{id}}",  # PATCH - Actualización parcial
+        'delete': f"{API_BASE_URL}/admin/products/{{id}}",  # DELETE - Eliminar producto
+        'update_image': f"{API_BASE_URL}/admin/products/{{id}}/update-image",  # POST - Actualizar producto con imagen (workaround)
+        'update_status': f"{API_BASE_URL}/admin/products/{{id}}/status",  # PATCH - Actualizar estado
+        'low_stock': f"{API_BASE_URL}/admin/products/low-stock"  # GET - Productos con stock bajo
+    },
+    
+    # Endpoints de Inventario (Stock y Control)
+    'inventory': {
+        'create_entry': f"{API_BASE_URL}/admin/inventory",  # POST - Crear entrada de inventario
+        'products_list': f"{API_BASE_URL}/admin/inventory/products",  # GET - Lista de productos en inventario
+        'product_detail': f"{API_BASE_URL}/admin/inventory/products/{{id}}",  # GET - Detalle de producto en inventario
+        'update_status': f"{API_BASE_URL}/admin/inventory/products/{{id}}/status",  # PATCH - Actualizar estado en inventario
+        'statistics': f"{API_BASE_URL}/admin/inventory/statistics",  # GET - Estadísticas de inventario
+        
+        # Endpoints de gestión de stock (flexibles)
+        'update_stock': f"{API_BASE_URL}/admin/inventory/products/{{id}}/stock",  # PATCH - Actualizar stock (genérico con 'accion')
+    }
+}
+
+# Endpoints de Inventario (Mantenido para compatibilidad)
 INVENTORY_ENDPOINTS = {
-    'list': f"{API_BASE_URL}/admin/inventario",
-    'detail': f"{API_BASE_URL}/admin/inventario/{{id}}",
-    'register': f"{API_BASE_URL}/admin/inventario/register",
-    'update': f"{API_BASE_URL}/admin/inventario/update/{{id}}",
-    'delete': f"{API_BASE_URL}/admin/inventario/{{id}}",
-    'categories': f"{API_BASE_URL}/admin/inventario/categorias"
+    'list': f"{API_BASE_URL}/admin/inventory/products",
+    'detail': f"{API_BASE_URL}/admin/inventory/products/{{id}}",
+    'register': f"{API_BASE_URL}/admin/inventory",
+    'update': f"{API_BASE_URL}/admin/products/{{id}}",
+    'delete': f"{API_BASE_URL}/admin/products/{{id}}",
+    'categories': f"{API_BASE_URL}/admin/categories"
 }
 
 # Endpoints de Pedidos
@@ -171,5 +211,33 @@ MESSAGES = {
         'no_data': 'No hay datos para mostrar',
         'confirm_delete': '¿Está seguro de que desea eliminar este registro?',
         'confirm_logout': '¿Está seguro de que desea cerrar sesión?'
+    }
+}
+
+# Configuración de payloads para operaciones de stock
+STOCK_OPERATIONS_CONFIG = {
+    'establecer': {
+        'accion': 'establecer',
+        'payload': {
+            'cantidad_disponible': 0,
+            'accion': 'establecer'
+        },
+        'description': 'Establecer stock a una cantidad específica'
+    },
+    'aumentar': {
+        'accion': 'aumentar',
+        'payload': {
+            'cantidad_disponible': 0,
+            'accion': 'aumentar'
+        },
+        'description': 'Aumentar stock'
+    },
+    'reducir': {
+        'accion': 'reducir',
+        'payload': {
+            'cantidad_disponible': 0,
+            'accion': 'reducir'
+        },
+        'description': 'Reducir stock'
     }
 }

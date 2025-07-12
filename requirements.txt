@@ -1,3 +1,4 @@
+# git@github.com:JinmyMarce/FontendEscritorio.gitgit@github.com:JinmyMarce/FontendEscritorio.git
 customtkinter==5.2.2
 Pillow==9.5.0
 requests==2.31.0

@@ -4,9 +4,11 @@ from tkinter import ttk
 import json
 import os
 from datetime import datetime
-from src.core.config import INVENTORY_ENDPOINTS, UI_CONFIG
+from src.core.config import INVENTORY_MANAGEMENT_ENDPOINTS, UI_CONFIG
 from src.shared.utils import APIHandler, UIHelper, SessionManager, DataValidator, DateTimeHelper
-from src.interfaces.management.product_creation import abrir_ventana_crear_producto
+from src.interfaces.management.products_management import ProductsSection
+from src.interfaces.management.categories_management import GestionCategoriasFrame
+from src.interfaces.management.stock_management import StockManagementSection
 from PIL import Image, ImageTk
 from src.shared.image_handler import ImageHandler
 
@@ -14,352 +16,191 @@ class GestionInventario(ctk.CTkFrame):
     def __init__(self, parent):
         try:
             super().__init__(parent)
-            self.pack(fill="both", expand=True, padx=20, pady=20)
             
-            # Título
-            ctk.CTkLabel(
-                self,
-                text="Gestión de Inventario",
-                font=("Quicksand", 24, "bold"),
-                text_color="#2E6B5C"
-            ).pack(pady=(0, 20))
+            # Configurar layout responsivo con grid
+            self.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
             
-            # Frame superior para botones de acción
-            action_frame = ctk.CTkFrame(self)
-            action_frame.pack(fill="x", pady=(0, 20))
+            # Configurar grid del parent para que se expanda
+            if hasattr(parent, 'grid_rowconfigure'):
+                parent.grid_rowconfigure(0, weight=1)
+                parent.grid_columnconfigure(0, weight=1)
             
-            # Botones de acción
-            ctk.CTkButton(
-                action_frame,
-                text="Nuevo Producto",
-                command=self.nuevo_producto,
-                fg_color="#2E6B5C",
-                hover_color="#1D4A3C"
-            ).pack(side="left", padx=5)
+            # Configurar grid interno
+            self.grid_columnconfigure(0, weight=1)
+            self.grid_rowconfigure(2, weight=1)  # El contenido principal se expande
             
-            ctk.CTkButton(
-                action_frame,
-                text="Editar Producto",
-                command=self.editar_producto,
-                fg_color="#2E6B5C",
-                hover_color="#1D4A3C"
-            ).pack(side="left", padx=5)
+            # Configurar tema
+            self.configure(fg_color="#F5F5F5")
             
-            ctk.CTkButton(
-                action_frame,
-                text="Eliminar Producto",
-                command=self.eliminar_producto,
-                fg_color="#E64A19",
-                hover_color="#BF360C"
-            ).pack(side="left", padx=5)
-            
-            # Frame de búsqueda
-            search_frame = ctk.CTkFrame(self)
-            search_frame.pack(fill="x", pady=(0, 20))
-            
-            ctk.CTkLabel(
-                search_frame,
-                text="Buscar:",
-                font=("Quicksand", 12)
-            ).pack(side="left", padx=(0, 10))
-            
-            self.search_var = ctk.StringVar()
-            self.search_var.trace("w", self.filtrar_productos)
-            
-            search_entry = ctk.CTkEntry(
-                search_frame,
-                textvariable=self.search_var,
-                width=300
-            )
-            search_entry.pack(side="left")
-            
-            # Crear tabla
-            self.crear_tabla()
-            self.actualizar_tabla()
-            
+            # Inicializar manejador de imágenes
             self.image_handler = ImageHandler()
+            
+            # Variables de datos (solo las que aún se usan en este módulo principal)
+            self.inventario = []
+            
+            # Variable para rastrear la sección actual
+            self.seccion_actual = "productos"  # productos, categorias, stock
+            
+            self.crear_interfaz_principal()
             
         except Exception as e:
             messagebox.showerror("Error", f"Error al inicializar gestión de inventario: {str(e)}")
             
-    def cargar_datos_ejemplo(self):
+    def crear_interfaz_principal(self):
+        """Crear la interfaz principal con navegación por pestañas"""
         try:
-            url = INVENTORY_ENDPOINTS['list']
-            token = SessionManager.get_token()
-            headers = {'Authorization': f'Bearer {token}'} if token else {}
-            response = APIHandler.make_request('get', url, headers=headers)
-            if response['status_code'] == 200:
-                self.productos = response['data']
-            else:
-                self.productos = []
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al cargar inventario: {str(e)}")
+            # Frame superior con título
+            top_frame = ctk.CTkFrame(self, fg_color="transparent")
+            top_frame.grid(row=0, column=0, sticky="ew", padx=0, pady=(0, 20))
             
-    def crear_tabla(self):
-        try:
-            # Frame para la tabla
-            table_frame = ctk.CTkFrame(self)
-            table_frame.pack(fill="both", expand=True)
+            # Título con icono
+            title_frame = ctk.CTkFrame(top_frame, fg_color="transparent")
+            title_frame.pack(side="left")
             
-            # Crear Treeview
-            columns = ("codigo", "nombre", "categoria", "precio", "stock")
-            self.tabla = ttk.Treeview(table_frame, columns=columns, show="headings")
-            
-            # Configurar columnas
-            self.tabla.heading("codigo", text="Código")
-            self.tabla.heading("nombre", text="Nombre")
-            self.tabla.heading("categoria", text="Categoría")
-            self.tabla.heading("precio", text="Precio")
-            self.tabla.heading("stock", text="Stock")
-            
-            # Configurar anchos de columna
-            self.tabla.column("codigo", width=100)
-            self.tabla.column("nombre", width=300)
-            self.tabla.column("categoria", width=150)
-            self.tabla.column("precio", width=100)
-            self.tabla.column("stock", width=100)
-            
-            # Scrollbars
-            vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.tabla.yview)
-            hsb = ttk.Scrollbar(table_frame, orient="horizontal", command=self.tabla.xview)
-            self.tabla.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
-            
-            # Imagen de fondo
-            try:
-                current_dir = os.path.dirname(os.path.abspath(__file__))
-                logo_path = os.path.join(current_dir, "..", "..", "..", "assets", "images", "logo.png")
-                if os.path.exists(logo_path):
-                    # Mantener referencia a la imagen
-                    self.bg_logo_image = Image.open(logo_path)
-                    self.bg_logo = ctk.CTkImage(
-                        light_image=self.bg_logo_image,
-                        dark_image=self.bg_logo_image,
-                        size=(100, 100)
-                    )
-                    self.bg_logo_label = ctk.CTkLabel(table_frame, image=self.bg_logo, text="")
-                    self.bg_logo_label.place(relx=0.5, rely=0.5, anchor="center")
-            except Exception as e:
-                print(f"Error al cargar el logo: {str(e)}")
-            
-            # Empaquetar elementos
-            self.tabla.pack(fill="both", expand=True)
-            vsb.pack(side="right", fill="y")
-            hsb.pack(side="bottom", fill="x")
-            
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al crear tabla: {str(e)}")
-            
-    def actualizar_tabla(self, filtro=""):
-        try:
-            # Limpiar tabla
-            for item in self.tabla.get_children():
-                self.tabla.delete(item)
-                
-            # Filtrar y mostrar productos
-            for producto in self.productos:
-                if (filtro.lower() in producto["nombre"].lower() or 
-                    filtro.lower() in producto["codigo"].lower() or
-                    filtro.lower() in producto["categoria"].lower()):
-                    self.tabla.insert("", "end", values=(
-                        producto["codigo"],
-                        producto["nombre"],
-                        producto["categoria"],
-                        f"${producto['precio']:.2f}",
-                        producto["stock"]
-                    ))
-                    
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al actualizar tabla: {str(e)}")
-            
-    def filtrar_productos(self, *args):
-        try:
-            self.actualizar_tabla(self.search_var.get())
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al filtrar productos: {str(e)}")
-            
-    def nuevo_producto(self):
-        try:
-            # Abrir la ventana de crear producto
-            ventana = abrir_ventana_crear_producto()
-            ventana.mainloop()
-                
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al crear nuevo producto: {str(e)}")
-            
-    def editar_producto(self):
-        try:
-            # Obtener selección
-            seleccion = self.tabla.selection()
-            if not seleccion:
-                messagebox.showwarning("Advertencia", "Por favor seleccione un producto para editar")
-                return
-                
-            # Obtener producto seleccionado
-            item = self.tabla.item(seleccion[0])
-            producto_id = item["values"][0]
-            producto = next((p for p in self.productos if p["id"] == producto_id), None)
-            
-            if producto:
-                # Mostrar diálogo de edición
-                dialog = ProductDialog(self, "Editar Producto", producto)
-                if dialog.result:
-                    # Actualizar producto
-                    producto.update(dialog.result)
-                    self.actualizar_tabla()
-                    self.guardar_datos()
-                    messagebox.showinfo("Éxito", "Producto actualizado correctamente")
-                    
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al editar producto: {str(e)}")
-            
-    def eliminar_producto(self):
-        try:
-            # Obtener selección
-            seleccion = self.tabla.selection()
-            if not seleccion:
-                messagebox.showwarning("Advertencia", "Por favor seleccione un producto para eliminar")
-                return
-                
-            # Confirmar eliminación
-            if messagebox.askyesno("Confirmar", "¿Está seguro de eliminar el producto seleccionado?"):
-                # Obtener producto seleccionado
-                item = self.tabla.item(seleccion[0])
-                producto_id = item["values"][0]
-                
-                # Eliminar producto
-                self.productos = [p for p in self.productos if p["id"] != producto_id]
-                self.actualizar_tabla()
-                self.guardar_datos()
-                messagebox.showinfo("Éxito", "Producto eliminado correctamente")
-                
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al eliminar producto: {str(e)}")
-            
-    def guardar_datos(self):
-        try:
-            # Crear directorio si no existe
-            os.makedirs("datos", exist_ok=True)
-            
-            # Guardar datos en archivo
-            with open("datos/inventario.json", "w", encoding="utf-8") as f:
-                json.dump(self.productos, f, indent=4, ensure_ascii=False)
-                
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al guardar datos: {str(e)}")
-            
-class ProductDialog:
-    def __init__(self, parent, title, producto=None):
-        try:
-            self.result = None
-            
-            # Crear ventana de diálogo
-            self.dialog = ctk.CTkToplevel(parent)
-            self.dialog.title(title)
-            self.dialog.geometry("400x500")
-            self.dialog.resizable(False, False)
-            
-            # Hacer modal
-            self.dialog.transient(parent)
-            self.dialog.grab_set()
-            
-            # Centrar ventana
-            self.dialog.update_idletasks()
-            width = self.dialog.winfo_width()
-            height = self.dialog.winfo_height()
-            x = (self.dialog.winfo_screenwidth() // 2) - (width // 2)
-            y = (self.dialog.winfo_screenheight() // 2) - (height // 2)
-            self.dialog.geometry(f"{width}x{height}+{x}+{y}")
-            
-            # Campos del formulario
-            campos = [
-                ("Código", "codigo"),
-                ("Nombre", "nombre"),
-                ("Categoría", "categoria"),
-                ("Precio", "precio"),
-                ("Stock", "stock")
-            ]
-            
-            self.entries = {}
-            
-            for i, (label, field) in enumerate(campos):
-                # Label
+            # Cargar y mostrar icono de inventario
+            icon = self.image_handler.load_image("inventory.png", (32, 32))
+            if icon:
                 ctk.CTkLabel(
-                    self.dialog,
-                    text=label,
-                    font=("Quicksand", 12)
-                ).pack(pady=(20 if i == 0 else 10, 0))
+                    title_frame,
+                    image=icon,
+                    text=""
+                ).pack(side="left", padx=(0, 10))
                 
-                # Entry
-                entry = ctk.CTkEntry(self.dialog, width=300)
-                entry.pack()
-                self.entries[field] = entry
-                
-                # Valor inicial si es edición
-                if producto:
-                    entry.insert(0, str(producto[field]))
-                    
-            # Botones
-            button_frame = ctk.CTkFrame(self.dialog, fg_color="#FFFFFF")
-            button_frame.pack(pady=20)
+            ctk.CTkLabel(
+                title_frame,
+                text="Gestión de Inventario",
+                font=("Quicksand", 24, "bold"),
+                text_color="#2E6B5C"
+            ).pack(side="left")
             
-            ctk.CTkButton(
-                button_frame,
-                text="Guardar",
-                command=self.guardar,
+            # Frame de navegación con pestañas
+            nav_frame = ctk.CTkFrame(self, fg_color="#FFFFFF", corner_radius=10)
+            nav_frame.grid(row=1, column=0, sticky="ew", padx=0, pady=(0, 20))
+            
+            # Botones de navegación
+            buttons_frame = ctk.CTkFrame(nav_frame, fg_color="transparent")
+            buttons_frame.pack(fill="x", padx=20, pady=15)
+            
+            # Botón Productos
+            self.btn_productos = ctk.CTkButton(
+                buttons_frame,
+                text="📦 Productos",
+                command=lambda: self.cambiar_seccion("productos"),
                 fg_color="#2E6B5C",
-                hover_color="#1D4A3C"
-            ).pack(side="left", padx=5)
+                hover_color="#1D4A3C",
+                width=150,
+                height=35,
+                font=("Quicksand", 14, "bold")
+            )
+            self.btn_productos.pack(side="left", padx=5)
             
-            ctk.CTkButton(
-                button_frame,
-                text="Cancelar",
-                command=self.cancelar,
-                fg_color="#E64A19",
-                hover_color="#BF360C"
-            ).pack(side="left", padx=5)
+            # Botón Categorías
+            self.btn_categorias = ctk.CTkButton(
+                buttons_frame,
+                text="🏷️ Categorías",
+                command=lambda: self.cambiar_seccion("categorias"),
+                fg_color="#4A934A",
+                hover_color="#367832",
+                width=150,
+                height=35,
+                font=("Quicksand", 14, "bold")
+            )
+            self.btn_categorias.pack(side="left", padx=5)
             
-            # Esperar a que se cierre el diálogo
-            parent.wait_window(self.dialog)
+            # Botón Stock
+            self.btn_stock = ctk.CTkButton(
+                buttons_frame,
+                text="📊 Control de Stock",
+                command=lambda: self.cambiar_seccion("stock"),
+                fg_color="#367832",
+                hover_color="#2D5A27",
+                width=150,
+                height=35,
+                font=("Quicksand", 14, "bold")
+            )
+            self.btn_stock.pack(side="left", padx=5)
+            
+            # Frame de contenido principal (aquí se cargarán las diferentes secciones)
+            self.content_frame = ctk.CTkFrame(self, fg_color="#F5F5F5")
+            self.content_frame.grid(row=2, column=0, sticky="nsew", padx=0, pady=0)
+            self.content_frame.grid_columnconfigure(0, weight=1)
+            self.content_frame.grid_rowconfigure(0, weight=1)
+            
+            # Cargar la sección por defecto
+            self.cambiar_seccion("productos")
             
         except Exception as e:
-            messagebox.showerror("Error", f"Error al crear diálogo: {str(e)}")
-            self.dialog.destroy()
+            messagebox.showerror("Error", f"Error al crear interfaz principal: {str(e)}")
             
-    def guardar(self):
+    def cambiar_seccion(self, seccion):
+        """Cambiar entre las diferentes secciones del inventario"""
         try:
-            # Validar campos
-            for field, entry in self.entries.items():
-                if not entry.get().strip():
-                    messagebox.showwarning("Advertencia", f"El campo {field} es requerido")
-                    return
-                    
-            # Validar precio y stock como números
-            try:
-                precio = float(self.entries["precio"].get())
-                stock = int(self.entries["stock"].get())
-                if precio < 0 or stock < 0:
-                    raise ValueError("Los valores deben ser positivos")
-            except ValueError as e:
-                messagebox.showwarning("Advertencia", "Precio y stock deben ser números válidos y positivos")
-                return
-                
-            # Guardar resultado
-            self.result = {
-                "codigo": self.entries["codigo"].get().strip(),
-                "nombre": self.entries["nombre"].get().strip(),
-                "categoria": self.entries["categoria"].get().strip(),
-                "precio": precio,
-                "stock": stock
-            }
+            # Actualizar variable de sección actual
+            self.seccion_actual = seccion
             
-            # Cerrar diálogo
-            self.dialog.destroy()
+            # Actualizar colores de botones para mostrar el activo
+            self.actualizar_botones_navegacion()
+            
+            # Limpiar frame de contenido
+            for widget in self.content_frame.winfo_children():
+                widget.destroy()
+                
+            # Cargar la sección correspondiente
+            if seccion == "productos":
+                self.crear_seccion_productos()
+            elif seccion == "categorias":
+                self.crear_seccion_categorias()
+            elif seccion == "stock":
+                self.crear_seccion_stock()
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al cambiar sección: {str(e)}")
+            
+    def actualizar_botones_navegacion(self):
+        """Actualizar colores de botones según la sección activa"""
+        # Reset todos los botones a color inactivo
+        self.btn_productos.configure(fg_color="#6B6B6B", hover_color="#5A5A5A")
+        self.btn_categorias.configure(fg_color="#6B6B6B", hover_color="#5A5A5A")
+        self.btn_stock.configure(fg_color="#6B6B6B", hover_color="#5A5A5A")
+        
+        # Destacar botón activo
+        if self.seccion_actual == "productos":
+            self.btn_productos.configure(fg_color="#2E6B5C", hover_color="#1D4A3C")
+        elif self.seccion_actual == "categorias":
+            self.btn_categorias.configure(fg_color="#4A934A", hover_color="#367832")
+        elif self.seccion_actual == "stock":
+            self.btn_stock.configure(fg_color="#367832", hover_color="#2D5A27")
+            
+    def crear_seccion_productos(self):
+        """Crear la sección de gestión de productos usando el componente modular"""
+        try:
+            # Crear y configurar la sección de productos modular
+            self.productos_section = ProductsSection(self.content_frame)
+            self.productos_section.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
             
         except Exception as e:
-            messagebox.showerror("Error", f"Error al guardar datos: {str(e)}")
+            messagebox.showerror("Error", f"Error al crear sección de productos: {str(e)}")
             
-    def cancelar(self):
-        self.dialog.destroy()
+    def crear_seccion_categorias(self):
+        """Crear la sección de gestión de categorías usando el componente modular"""
+        try:
+            # Crear y configurar la sección de categorías modular
+            self.categorias_section = GestionCategoriasFrame(self.content_frame)
+            self.categorias_section.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al crear sección de categorías: {str(e)}")
+            
+    def crear_seccion_stock(self):
+        """Crear la sección de control de stock usando el componente modular"""
+        try:
+            # Crear y configurar la sección de stock modular
+            self.stock_section = StockManagementSection(self.content_frame)
+            self.stock_section.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al crear sección de stock: {str(e)}")
+
 
 if __name__ == "__main__":
     app = ctk.CTk()
