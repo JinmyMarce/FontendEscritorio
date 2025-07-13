@@ -6,7 +6,7 @@ from src.interfaces.management.orders_management import GestionPedidos
 from src.interfaces.management.clients_management import GestionClientes
 from src.interfaces.management.notifications_management import GestionNotificaciones
 from src.interfaces.management.payments_management import GestionPagos
-from src.interfaces.management.statistics_management import EstadisticasVentas
+from src.interfaces.statistics import EstadisticasVentas
 from src.shared.image_handler import ImageHandler
 import tkinter.messagebox as messagebox
 from src.core.config import ORDERS_ENDPOINTS
