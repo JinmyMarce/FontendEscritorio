@@ -90,6 +90,8 @@ class StatisticsIconManager:
                 self._draw_target_icon(draw, size, color_rgb)
             elif icon_name == "conversion":
                 self._draw_conversion_icon(draw, size, color_rgb)
+            elif icon_name == "statistics":
+                self._draw_statistics_icon(draw, size, color_rgb)
             else:
                 self._draw_default_icon(draw, size, color_rgb)
             
@@ -169,6 +171,45 @@ class StatisticsIconManager:
             draw.ellipse([point[0]-2, point[1]-2, point[0]+2, point[1]+2],
                         fill=color)
     
+    def _draw_statistics_icon(self, draw, size, color):
+        """Dibuja un icono de estadísticas (gráfico de barras con tendencia)"""
+        w, h = size
+        margin = w // 8
+        
+        # Gráfico de barras
+        bar_width = max(2, w // 12)
+        bar_spacing = max(1, w // 16)
+        bar_count = 4
+        
+        # Alturas de las barras (creciente)
+        bar_heights = [h//4, h//3, h//2.2, h//1.8]
+        
+        start_x = margin + 2
+        for i in range(bar_count):
+            x = start_x + i * (bar_width + bar_spacing)
+            y = h - margin - bar_heights[i]
+            
+            # Barra
+            draw.rectangle([x, y, x + bar_width, h - margin], 
+                          fill=color, outline=color)
+        
+        # Línea de tendencia ascendente
+        trend_points = [
+            (start_x + bar_width//2, h - margin - bar_heights[0]//2),
+            (start_x + bar_width//2 + (bar_width + bar_spacing), h - margin - bar_heights[1]//2),
+            (start_x + bar_width//2 + 2*(bar_width + bar_spacing), h - margin - bar_heights[2]//2),
+            (start_x + bar_width//2 + 3*(bar_width + bar_spacing), h - margin - bar_heights[3]//2)
+        ]
+        
+        # Dibujar línea de tendencia en rojo suave
+        trend_color = (239, 68, 68)  # Color diferente para la tendencia
+        for i in range(len(trend_points)-1):
+            draw.line([trend_points[i], trend_points[i+1]], fill=trend_color, width=2)
+        
+        # Puntos en la línea
+        for point in trend_points:
+            draw.ellipse([point[0]-2, point[1]-2, point[0]+2, point[1]+2], fill=trend_color)
+
     def _draw_default_icon(self, draw, size, color):
         """Dibuja un icono por defecto"""
         w, h = size

@@ -21,13 +21,14 @@ class KPIGrid(ctk.CTkFrame):
             for i in range(4):
                 self.grid_columnconfigure(i, weight=1)
             
-            # Definir configuración de KPIs con iconos desde archivos
+            # Definir configuración de KPIs con paleta profesional
+            # Paleta: Verde principal, Azul para datos importantes, Amarillo/Naranja para métricas especiales
             self.kpis_config = [
                 {
                     'key': 'total_ventas',
                     'title': 'Total Ventas',
                     'icon_name': 'sales',
-                    'color': '#16A34A',  # Verde principal
+                    'color': '#16A34A',  # Verde principal - Ventas (más importante)
                     'row': 0,
                     'col': 0
                 },
@@ -35,7 +36,7 @@ class KPIGrid(ctk.CTkFrame):
                     'key': 'total_pedidos',
                     'title': 'Total Pedidos',
                     'icon_name': 'orders',
-                    'color': '#059669',  # Verde esmeralda
+                    'color': '#2563EB',  # Azul profesional - Datos operativos
                     'row': 0,
                     'col': 1
                 },
@@ -43,7 +44,7 @@ class KPIGrid(ctk.CTkFrame):
                     'key': 'ticket_promedio',
                     'title': 'Ticket Promedio',
                     'icon_name': 'target',
-                    'color': '#10B981',  # Verde agua
+                    'color': '#F59E0B',  # Amarillo/Naranja - Métricas de análisis
                     'row': 0,
                     'col': 2
                 },
@@ -51,7 +52,7 @@ class KPIGrid(ctk.CTkFrame):
                     'key': 'conversion_rate',
                     'title': 'Tasa de Conversión',
                     'icon_name': 'conversion',
-                    'color': '#EF4444',  # Rojo suave
+                    'color': '#7C3AED',  # Púrpura - Métricas de rendimiento
                     'row': 0,
                     'col': 3
                 }
