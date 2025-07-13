@@ -65,13 +65,14 @@ class EstadisticasVentas(ctk.CTkFrame):
             # Botón de actualizar
             self.btn_refresh = ctk.CTkButton(
                 date_frame,
-                text="🔄 Actualizar",
+                text="Actualizar",
                 command=self.actualizar_datos,
                 width=120,
                 height=35,
-                fg_color="#EC0617",
-                hover_color="#B8051A",
-                font=("Arial", 14)
+                fg_color="#4A90C2",
+                hover_color="#357ABD",
+                font=("Arial", 14),
+                corner_radius=8
             )
             self.btn_refresh.pack(side="left")
             
@@ -139,7 +140,7 @@ class EstadisticasVentas(ctk.CTkFrame):
                 },
                 {
                     'key': 'ticket_promedio',
-                    'title': 'Valor Promedio Pedido',
+                    'title': 'Ticket Promedio',
                     'icon': '🎫',
                     'color': '#FFC107',
                     'row': 0,
@@ -310,7 +311,7 @@ class EstadisticasVentas(ctk.CTkFrame):
         finally:
             # Habilitar botón nuevamente
             if hasattr(self, 'btn_refresh'):
-                self.btn_refresh.configure(state="normal", text="🔄 Actualizar")
+                self.btn_refresh.configure(state="normal", text="Actualizar")
     
     def cargar_kpis(self, fecha_inicio, fecha_fin):
         """Carga los KPIs desde la API"""
@@ -391,7 +392,7 @@ class EstadisticasVentas(ctk.CTkFrame):
                     formato = kpi_data.get('formato', 'number')
                     
                     if formato == 'currency':
-                        formatted_value = f"${valor:,.2f}"
+                        formatted_value = f"S/. {valor:,.2f}"
                     elif formato == 'percentage':
                         formatted_value = f"{valor:.1f}%"
                     else:
