@@ -1,57 +1,72 @@
 #!/usr/bin/env python3
 """
-Script de prueba para la nueva estructura modular de estadísticas
-
-Mejoras implementadas:
-- 📊 Estructura modular con componentes separados
-- 🎨 Iconos modernos y profesionales para KPIs
-- 🎨 Colores mejorados y más profesionales
-- 💰 Formato de moneda en soles peruanos (S/.)
-- 🔄 Botón de actualizar con estado de carga
-- 📱 Diseño responsivo y moderno
-- 🏗️ Arquitectura limpia con separación de responsabilidades
-
-Componentes:
-- StatisticsControls: Controles de filtros y acciones
-- KPIGrid: Grid de tarjetas KPI
-- KPICard: Tarjetas individuales para cada KPI
-- StatisticsService: Servicio de datos
-- StatisticsMain: Interfaz principal
+Script de prueba para la nueva interfaz de gráficos estadísticos
 """
-
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
+# Agregar el directorio raíz al path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import customtkinter as ctk
-from src.interfaces.statistics import EstadisticasVentas
+from src.interfaces.statistics.statistics_main import EstadisticasVentas
 
 def main():
-    """Función principal para probar la interfaz modular"""
-    # Configurar tema
+    """Función principal de prueba"""
+    print("🚀 Iniciando prueba de gráficos estadísticos...")
+    print("📊 Funcionalidades implementadas:")
+    print("   ✅ Gráfico de ventas diarias (doble eje Y)")
+    print("   ✅ Gráfico de ventas mensuales (barras)")
+    print("   ✅ Top productos más vendidos (barras horizontales)")
+    print("   ✅ Estados de pedidos (gráfico de pastel)")
+    print("   ✅ Integración con API backend")
+    print("   ✅ Datos de fallback automáticos")
+    print("   ✅ Paleta de colores profesional")
+    print("   ✅ Controles interactivos")
+    print("   ✅ Sincronización de períodos con KPIs")
+    print()
+    
+    # Configurar customtkinter
     ctk.set_appearance_mode("light")
     ctk.set_default_color_theme("green")
     
     # Crear ventana principal
     root = ctk.CTk()
-    root.title("Estadísticas de Ventas - Paleta Verde Profesional")
-    root.geometry("1200x800")
+    root.title("Estadísticas de Ventas - Con Gráficos Profesionales")
+    root.geometry("1400x900")
+    root.minsize(1200, 700)
     
-    print("🚀 Iniciando interfaz de estadísticas con nueva paleta verde...")
-    print("✨ Mejoras implementadas:")
-    print("   🎨 Paleta de colores verde principal con rojo suave")
-    print("   💰 Iconos coloridos SIN cuadros de fondo")
-    print("   📊 Iconos modernos: 💰 📦 🎯 📈")
-    print("   💱 Formato de moneda en soles (S/.)")
-    print("   🏗️ Estructura completamente modular")
-    print("   🎯 Colores de crecimiento diferenciados")
-    print("   ✨ Diseño limpio y profesional")
+    try:
+        # Crear interfaz de estadísticas
+        app = EstadisticasVentas(root)
+        
+        print("✅ Interfaz cargada exitosamente")
+        print("🎯 Funciones disponibles:")
+        print("   • Cambiar período en el selector superior")
+        print("   • Cambiar tipo de gráfico en el selector de gráficos")
+        print("   • Hacer clic en 'Actualizar' para recargar datos")
+        print("   • Los gráficos se sincronizan automáticamente con el período de KPIs")
+        print()
+        print("📈 Tipos de gráficos disponibles:")
+        print("   1. ventas_diarias - Tendencia diaria con transacciones")
+        print("   2. ventas_mensuales - Evolución mensual") 
+        print("   3. productos_vendidos - Top 10 productos")
+        print("   4. estados_pedidos - Distribución de estados")
+        print()
+        print("🔧 Endpoints API utilizados:")
+        print("   • KPIs: /api/v1/admin/reports/data/kpis")
+        print("   • Gráficos: /api/v1/admin/reports/data/charts")
+        print()
+        
+        # Ejecutar aplicación
+        root.mainloop()
+        
+    except Exception as e:
+        print(f"❌ Error al ejecutar la aplicación: {str(e)}")
+        import traceback
+        traceback.print_exc()
     
-    # Crear interfaz de estadísticas modular
-    app = EstadisticasVentas(root)
-    
-    # Ejecutar aplicación
-    root.mainloop()
+    print("👋 Aplicación cerrada")
 
 if __name__ == "__main__":
     main()

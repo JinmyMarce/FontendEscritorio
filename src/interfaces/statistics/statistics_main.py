@@ -55,26 +55,10 @@ class EstadisticasVentas(ctk.CTkFrame):
             self.kpi_grid = KPIGrid(self)
             self.kpi_grid.pack(fill="x", pady=(0, 30))
             
-            # Frame para contenido adicional (futuras funcionalidades)
-            self.content_frame = ctk.CTkFrame(self, fg_color="#F8F9FA", corner_radius=15)
-            self.content_frame.pack(fill="both", expand=True)
-            
-            # Placeholder para futuras funcionalidades
-            self.placeholder_label = ctk.CTkLabel(
-                self.content_frame,
-                text="� Próximamente: Gráficos detallados de ventas\n\n"
-                     "Aquí se mostrarán gráficos interactivos con:\n"
-                     "• Tendencias de ventas por período\n"
-                     "• Productos más vendidos\n"
-                     "• Análisis por categorías\n"
-                     "• Comparativas entre períodos\n"
-                     "• Análisis de rendimiento\n\n"
-                     "✨ Interfaz modularizada y actualizada",
-                font=("Arial", 16),
-                text_color="#6B7280",
-                justify="center"
-            )
-            self.placeholder_label.pack(expand=True)
+            # NUEVO: Componente de gráficos estadísticos
+            from .components.charts_manager import ChartsManager
+            self.charts_manager = ChartsManager(self)
+            self.charts_manager.pack(fill="both", expand=True)
             
         except Exception as e:
             print(f"Error al configurar la interfaz: {str(e)}")
@@ -99,7 +83,7 @@ class EstadisticasVentas(ctk.CTkFrame):
         self.actualizar_datos()
     
     def actualizar_datos(self):
-        """Actualiza los datos de los KPIs usando el servicio"""
+        """Actualiza los datos de los KPIs y gráficos usando el servicio"""
         try:
             # Establecer estado de carga
             self.controls.set_loading_state(True)
@@ -109,8 +93,12 @@ class EstadisticasVentas(ctk.CTkFrame):
             periodo = self.controls.get_selected_period()
             fecha_inicio, fecha_fin = self.statistics_service.get_date_range(periodo)
             
-            # Hacer petición a la API
+            # Hacer petición a la API para KPIs
             self.cargar_kpis(fecha_inicio, fecha_fin)
+            
+            # Actualizar gráficos si existe el componente
+            if hasattr(self, 'charts_manager'):
+                self.charts_manager.update_period(fecha_inicio, fecha_fin)
             
         except Exception as e:
             print(f"Error al actualizar datos: {str(e)}")
