@@ -21,37 +21,37 @@ class KPIGrid(ctk.CTkFrame):
             for i in range(4):
                 self.grid_columnconfigure(i, weight=1)
             
-            # Definir configuración de KPIs
+            # Definir configuración de KPIs con iconos desde archivos
             self.kpis_config = [
                 {
                     'key': 'total_ventas',
                     'title': 'Total Ventas',
-                    'icon': '💰',
-                    'color': '#28A745',
+                    'icon_name': 'sales',
+                    'color': '#16A34A',  # Verde principal
                     'row': 0,
                     'col': 0
                 },
                 {
                     'key': 'total_pedidos',
                     'title': 'Total Pedidos',
-                    'icon': '📦',
-                    'color': '#007BFF',
+                    'icon_name': 'orders',
+                    'color': '#059669',  # Verde esmeralda
                     'row': 0,
                     'col': 1
                 },
                 {
                     'key': 'ticket_promedio',
                     'title': 'Ticket Promedio',
-                    'icon': '🎫',
-                    'color': '#FFC107',
+                    'icon_name': 'target',
+                    'color': '#10B981',  # Verde agua
                     'row': 0,
                     'col': 2
                 },
                 {
                     'key': 'conversion_rate',
                     'title': 'Tasa de Conversión',
-                    'icon': '📊',
-                    'color': '#6F42C1',
+                    'icon_name': 'conversion',
+                    'color': '#EF4444',  # Rojo suave
                     'row': 0,
                     'col': 3
                 }
@@ -70,7 +70,7 @@ class KPIGrid(ctk.CTkFrame):
                 kpi_card = KPICard(
                     self,
                     title=kpi_config['title'],
-                    icon=kpi_config['icon'],
+                    icon_name=kpi_config['icon_name'],
                     color=kpi_config['color']
                 )
                 

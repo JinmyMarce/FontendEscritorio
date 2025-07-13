@@ -1,5 +1,19 @@
 """
-Interfaz principal de estadísticas de ventas - Versión modular
+Interfaz principal de estadísticas de venta            # Placeholder para futuras funcionalidades
+            self.placeholder_label = ctk.CTkLabel(
+                self.content_frame,
+                text="📈 Próximamente: Gráficos detallados de ventas\n\n"
+                     "Aquí se mostrarán gráficos interactivos con:\n"
+                     "• Tendencias de ventas por período\n"
+                     "• Productos más vendidos\n"
+                     "• Análisis por categorías\n"
+                     "• Comparativas entre períodos\n"
+                     "• Análisis de rendimiento\n\n"
+                     "✨ Interfaz modularizada con colores mejorados",
+                font=("Arial", 16),
+                text_color="#16A34A",
+                justify="center"
+            )ular
 """
 import customtkinter as ctk
 import tkinter.messagebox as messagebox
@@ -48,15 +62,16 @@ class EstadisticasVentas(ctk.CTkFrame):
             # Placeholder para futuras funcionalidades
             self.placeholder_label = ctk.CTkLabel(
                 self.content_frame,
-                text="📈 Próximamente: Gráficos detallados de ventas\n\n"
+                text="� Próximamente: Gráficos detallados de ventas\n\n"
                      "Aquí se mostrarán gráficos interactivos con:\n"
-                     "• Tendencias de ventas\n"
+                     "• Tendencias de ventas por período\n"
                      "• Productos más vendidos\n"
                      "• Análisis por categorías\n"
-                     "• Comparativas por períodos\n\n"
-                     "Interfaz modularizada ✅",
+                     "• Comparativas entre períodos\n"
+                     "• Análisis de rendimiento\n\n"
+                     "✨ Interfaz modularizada y actualizada",
                 font=("Arial", 16),
-                text_color="#6C757D",
+                text_color="#6B7280",
                 justify="center"
             )
             self.placeholder_label.pack(expand=True)

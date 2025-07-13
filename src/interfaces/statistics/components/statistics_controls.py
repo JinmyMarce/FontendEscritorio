@@ -1,5 +1,11 @@
 """
-Componente de controles para la interfaz de estadísticas
+Componente de control            # Título con icono mejorado
+            self.title_label = ctk.CTkLabel(
+                self.title_frame,
+                text="📊 Análisis de Ventas",
+                font=("Arial", 28, "bold"),
+                text_color="#16A34A"  # Verde principal
+            ) la interfaz de estadísticas
 """
 import customtkinter as ctk
 from tkinter import StringVar
@@ -26,9 +32,9 @@ class StatisticsControls(ctk.CTkFrame):
             # Título
             self.title_label = ctk.CTkLabel(
                 self.title_frame,
-                text="📊 Estadísticas de Ventas",
+                text="� Estadísticas de Ventas",
                 font=("Arial", 28, "bold"),
-                text_color="#2D5A27"
+                text_color="#1A365D"
             )
             self.title_label.pack(side="left")
             
@@ -44,7 +50,7 @@ class StatisticsControls(ctk.CTkFrame):
             )
             self.period_label.pack(side="left", padx=(0, 10))
             
-            # Selector de período
+            # Selector de período con colores verde
             self.periodo_var = StringVar(value="Último mes")
             self.periodo_selector = ctk.CTkOptionMenu(
                 self.controls_frame,
@@ -52,22 +58,23 @@ class StatisticsControls(ctk.CTkFrame):
                 values=["Último mes", "Últimos 7 días", "Últimos 3 meses", "Año actual"],
                 command=self._on_period_changed,
                 width=150,
-                fg_color="#2D5A27",
-                button_color="#367832"
+                fg_color="#16A34A",
+                button_color="#059669",
+                button_hover_color="#047857"
             )
             self.periodo_selector.pack(side="left", padx=(0, 10))
             
-            # Botón de actualizar
+            # Botón de actualizar con verde suave
             self.btn_refresh = ctk.CTkButton(
                 self.controls_frame,
                 text="Actualizar",
                 command=self._on_refresh,
                 width=120,
                 height=35,
-                fg_color="#4A90C2",
-                hover_color="#357ABD",
+                fg_color="#10B981",
+                hover_color="#059669",
                 font=("Arial", 14),
-                corner_radius=8
+                corner_radius=12
             )
             self.btn_refresh.pack(side="left")
             
