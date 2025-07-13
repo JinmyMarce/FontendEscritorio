@@ -6,6 +6,7 @@ from src.interfaces.management.orders_management import GestionPedidos
 from src.interfaces.management.clients_management import GestionClientes
 from src.interfaces.management.notifications_management import GestionNotificaciones
 from src.interfaces.management.payments_management import GestionPagos
+from src.interfaces.management.statistics_management import EstadisticasVentas
 from src.shared.image_handler import ImageHandler
 import tkinter.messagebox as messagebox
 from src.core.config import ORDERS_ENDPOINTS
@@ -85,6 +86,7 @@ class DashboardApp(ctk.CTkFrame):
             self.add_nav_button("👥 Clientes", self.mostrar_clientes)
             self.add_nav_button("🔔 Notificaciones", self.mostrar_notificaciones)
             self.add_nav_button("💰 Pagos", self.mostrar_pagos)
+            self.add_nav_button("📊 Estadísticas", self.mostrar_estadisticas)
             
             # Botón de cerrar sesión
             self.add_nav_button("🚪 Cerrar Sesión", self.cerrar_sesion)
@@ -164,6 +166,12 @@ class DashboardApp(ctk.CTkFrame):
             
             # Opciones del dashboard
             options = [
+                {
+                    "icon": "📊",
+                    "title": "Estadísticas de Ventas",
+                    "desc": "Visualice KPIs y métricas de rendimiento",
+                    "command": self.mostrar_estadisticas
+                },
                 {
                     "icon": "📦",
                     "title": "Gestión de Inventario",
@@ -246,6 +254,13 @@ class DashboardApp(ctk.CTkFrame):
             self.current_module = GestionInventario(self.content)
         except Exception as e:
             messagebox.showerror("Error", f"Error al mostrar inventario: {str(e)}")
+    
+    def mostrar_estadisticas(self):
+        try:
+            self.clear_content()
+            self.current_module = EstadisticasVentas(self.content)
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al mostrar estadísticas: {str(e)}")
             
     def mostrar_pedidos(self):
         try:
