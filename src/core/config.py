@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuración de la API
-# API_BASE_URL = os.getenv('API_BASE_URL', 'https://api.fresaterra.shop/api/v1')
-API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000/api/v1')
+API_BASE_URL = os.getenv('API_BASE_URL', 'https://api.fresaterra.shop/api/v1')
+# API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000/api/v1')
 
 # Endpoints de Autenticación
 AUTH_ENDPOINTS = {

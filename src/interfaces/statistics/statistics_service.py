@@ -53,7 +53,13 @@ class StatisticsService:
             
             if response.get('status_code') == 200:
                 data = response.get('data', {})
-                return {'success': True, 'data': data.get('data', {})}
+                # Procesar la nueva estructura de respuesta
+                return {
+                    'success': True, 
+                    'data': data.get('data', {}),
+                    'periodo': data.get('periodo', {}),
+                    'mensaje': data.get('mensaje', '')
+                }
             else:
                 error_msg = response.get('message', 'Error desconocido')
                 print(f"Error en API: {error_msg}")
@@ -120,20 +126,41 @@ class StatisticsService:
             'total_ventas': {
                 'valor': 0,
                 'formato': 'currency',
-                'crecimiento': 0
+                'crecimiento': {
+                    'porcentaje': 0,
+                    'tendencia': 'neutral',
+                    'valor_anterior': 0,
+                    'diferencia_absoluta': 0
+                }
             },
             'total_pedidos': {
                 'valor': 0,
                 'formato': 'number',
-                'crecimiento': 0
+                'crecimiento': {
+                    'porcentaje': 0,
+                    'tendencia': 'neutral',
+                    'valor_anterior': 0,
+                    'diferencia_absoluta': 0
+                }
             },
             'ticket_promedio': {
                 'valor': 0,
-                'formato': 'currency'
+                'formato': 'currency',
+                'crecimiento': {
+                    'porcentaje': 0,
+                    'tendencia': 'neutral',
+                    'valor_anterior': 0,
+                    'diferencia_absoluta': 0
+                }
             },
             'conversion_rate': {
                 'valor': 0,
-                'formato': 'percentage'
+                'formato': 'percentage',
+                'contexto': {
+                    'carritos_creados': 0,
+                    'pedidos_completados': 0,
+                    'descripcion': 'Sin datos de conversión disponibles'
+                }
             }
         }
     

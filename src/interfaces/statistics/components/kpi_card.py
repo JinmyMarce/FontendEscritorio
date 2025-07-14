@@ -88,30 +88,73 @@ class KPICard(ctk.CTkFrame):
     def update_value(self, value, format_type='number'):
         """Actualiza el valor mostrado en el KPI"""
         try:
+            # Convertir valor a número si viene como string
+            if isinstance(value, str):
+                try:
+                    value = float(value)
+                except ValueError:
+                    value = 0
+            
             if format_type == 'currency':
                 formatted_value = f"S/. {value:,.2f}"
             elif format_type == 'percentage':
                 formatted_value = f"{value:.1f}%"
             else:
-                formatted_value = f"{value:,}"
+                formatted_value = f"{int(value):,}"
             
             self.value_label.configure(text=formatted_value)
         except Exception as e:
             print(f"Error al actualizar valor KPI: {str(e)}")
             self.value_label.configure(text="Error")
     
-    def update_growth(self, growth_value):
-        """Actualiza el indicador de crecimiento"""
+    def update_growth(self, growth_data):
+        """Actualiza el indicador de crecimiento con datos más detallados"""
         try:
-            if growth_value > 0:
-                growth_text = f"↗ +{growth_value}% vs período anterior"
-                growth_color = "#22C55E"  # Verde brillante para crecimiento
-            elif growth_value < 0:
-                growth_text = f"↘ {growth_value}% vs período anterior"
-                growth_color = "#F87171"  # Rojo suave para decrecimiento
+            if isinstance(growth_data, dict):
+                # Nueva estructura con más información
+                porcentaje = growth_data.get('porcentaje', 0)
+                tendencia = growth_data.get('tendencia', 'neutral')
+                valor_anterior = growth_data.get('valor_anterior', 0)
+                
+                if porcentaje > 0:
+                    # Formatear diferentes rangos de crecimiento
+                    if porcentaje >= 1000:
+                        growth_text = f"🚀 +{porcentaje:.0f}% vs período anterior"
+                        growth_color = "#059669"  # Verde más intenso para crecimientos enormes
+                    elif porcentaje >= 100:
+                        growth_text = f"🔥 +{porcentaje:.0f}% vs período anterior"
+                        growth_color = "#16A34A"  # Verde brillante
+                    elif porcentaje >= 50:
+                        growth_text = f"📈 +{porcentaje:.1f}% vs período anterior"
+                        growth_color = "#22C55E"  # Verde normal
+                    else:
+                        growth_text = f"↗ +{porcentaje:.1f}% vs período anterior"
+                        growth_color = "#22C55E"
+                        
+                elif porcentaje < 0:
+                    if abs(porcentaje) >= 50:
+                        growth_text = f"📉 {porcentaje:.1f}% vs período anterior"
+                        growth_color = "#DC2626"  # Rojo más intenso
+                    else:
+                        growth_text = f"↘ {porcentaje:.1f}% vs período anterior"
+                        growth_color = "#F87171"  # Rojo suave
+                else:
+                    growth_text = "→ Sin cambios vs período anterior"
+                    growth_color = "#9CA3AF"  # Gris neutro
+                    
             else:
-                growth_text = "→ Sin cambios vs período anterior"
-                growth_color = "#9CA3AF"  # Gris neutro
+                # Compatibilidad con estructura simple (número)
+                growth_value = growth_data if isinstance(growth_data, (int, float)) else 0
+                
+                if growth_value > 0:
+                    growth_text = f"↗ +{growth_value:.1f}% vs período anterior"
+                    growth_color = "#22C55E"
+                elif growth_value < 0:
+                    growth_text = f"↘ {growth_value:.1f}% vs período anterior"
+                    growth_color = "#F87171"
+                else:
+                    growth_text = "→ Sin cambios vs período anterior"
+                    growth_color = "#9CA3AF"
             
             self.growth_label.configure(
                 text=growth_text,
@@ -119,6 +162,33 @@ class KPICard(ctk.CTkFrame):
             )
         except Exception as e:
             print(f"Error al actualizar crecimiento: {str(e)}")
+            self.growth_label.configure(
+                text="Sin datos de comparación",
+                text_color="#9CA3AF"
+            )
+    
+    def update_context(self, context_data):
+        """Actualiza con información contextual (para casos como conversion_rate)"""
+        try:
+            if isinstance(context_data, dict):
+                descripcion = context_data.get('descripcion', '')
+                if descripcion:
+                    self.growth_label.configure(
+                        text=descripcion,
+                        text_color="#6B7280"
+                    )
+                else:
+                    # Construir descripción desde los datos
+                    carritos = context_data.get('carritos_creados', 0)
+                    pedidos = context_data.get('pedidos_completados', 0)
+                    if carritos > 0:
+                        context_text = f"De {carritos} carritos, {pedidos} se convirtieron"
+                        self.growth_label.configure(
+                            text=context_text,
+                            text_color="#6B7280"
+                        )
+        except Exception as e:
+            print(f"Error al actualizar contexto: {str(e)}")
     
     def clear_growth(self):
         """Limpia el indicador de crecimiento"""

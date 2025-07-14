@@ -114,15 +114,22 @@ class EstadisticasVentas(ctk.CTkFrame):
             
             if result['success']:
                 # Actualizar KPIs con datos reales
+                print(f"✅ KPIs cargados exitosamente: {result.get('mensaje', '')}")
                 self.kpi_grid.update_kpi_data(result['data'])
+                
+                # Mostrar información del período si está disponible
+                if 'periodo' in result:
+                    periodo_info = result['periodo']
+                    print(f"📅 Período actual: {periodo_info.get('actual', {})}")
+                    print(f"📅 Período anterior: {periodo_info.get('anterior', {})}")
             else:
-                print(f"Error en API: {result.get('error', 'Error desconocido')}")
+                print(f"❌ Error en API: {result.get('error', 'Error desconocido')}")
                 # Usar datos de fallback
                 fallback_data = self.statistics_service.get_fallback_data()
                 self.kpi_grid.update_kpi_data(fallback_data)
                 
         except Exception as e:
-            print(f"Error al cargar KPIs: {str(e)}")
+            print(f"💥 Error al cargar KPIs: {str(e)}")
             # Usar datos de fallback en caso de error
             fallback_data = self.statistics_service.get_fallback_data()
             self.kpi_grid.update_kpi_data(fallback_data)

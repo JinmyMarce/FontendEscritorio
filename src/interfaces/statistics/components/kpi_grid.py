@@ -100,10 +100,15 @@ class KPIGrid(ctk.CTkFrame):
                     formato = data.get('formato', 'number')
                     card.update_value(valor, formato)
                     
-                    # Actualizar crecimiento si existe
+                    # Manejar información de crecimiento o contexto
                     if 'crecimiento' in data:
+                        # Datos con información de crecimiento
                         card.update_growth(data['crecimiento'])
+                    elif 'contexto' in data:
+                        # Datos con información contextual (como conversion_rate)
+                        card.update_context(data['contexto'])
                     else:
+                        # Sin información adicional
                         card.clear_growth()
                 else:
                     # Sin datos
@@ -111,6 +116,9 @@ class KPIGrid(ctk.CTkFrame):
                     
         except Exception as e:
             print(f"Error al actualizar KPIs: {str(e)}")
+            # En caso de error, mostrar mensaje en todas las tarjetas
+            for card in self.kpi_cards.values():
+                card.set_error("Error al cargar")
     
     def set_loading_state(self):
         """Establece todas las tarjetas en estado de carga"""
