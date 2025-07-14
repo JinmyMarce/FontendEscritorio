@@ -1,0 +1,7 @@
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- Icono fuego para crecimientos grandes (+100%) -->
+<path d="M8 2C7 3 6 4 6 6C6 8 7 9 8 9C9 9 10 8 10 6C10 4 9 3 8 2Z" fill="#16A34A"/>
+<path d="M8 4C7.5 5 7 5.5 7 6.5C7 7.5 7.5 8 8 8C8.5 8 9 7.5 9 6.5C9 5.5 8.5 5 8 4Z" fill="#22C55E"/>
+<path d="M5 8C5 10 6 12 8 12C10 12 11 10 11 8C11 9 10 10 8 10C6 10 5 9 5 8Z" fill="#16A34A"/>
+<path d="M6.5 9C6.5 10 7 11 8 11C9 11 9.5 10 9.5 9C9.5 9.5 9 10 8 10C7 10 6.5 9.5 6.5 9Z" fill="#22C55E"/>
+</svg>

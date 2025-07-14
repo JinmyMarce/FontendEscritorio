@@ -1,0 +1,10 @@
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- Icono cohete para crecimientos enormes (+1000%) -->
+<path d="M8 1L10 6H6L8 1Z" fill="#059669" stroke="#059669" stroke-width="1"/>
+<path d="M6 6H10V10H6V6Z" fill="#059669"/>
+<ellipse cx="8" cy="10" rx="2" ry="1" fill="#059669"/>
+<path d="M5 8L3 10L5 10V8Z" fill="#059669"/>
+<path d="M11 8V10L13 10L11 8Z" fill="#059669"/>
+<circle cx="8" cy="7.5" r="0.5" fill="#FFFFFF"/>
+<path d="M7 12L8 14L9 12" stroke="#059669" stroke-width="1" fill="none"/>
+</svg>

@@ -6,6 +6,7 @@ load_dotenv()
 
 # Configuración de la API
 API_BASE_URL = os.getenv('API_BASE_URL', 'https://api.fresaterra.shop/api/v1')
+# API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000/api/v1')
 
 # Endpoints de Autenticación
 AUTH_ENDPOINTS = {
@@ -103,6 +104,19 @@ NOTIFICATIONS_ENDPOINTS = {
     'users_count': f"{API_BASE_URL}/admin/users/count"
 }
 
+# Endpoints de Reportes
+REPORTS_ENDPOINTS = {
+    'list': f"{API_BASE_URL}/admin/reports",  # GET - Listar reportes
+    'ventas_resumen': f"{API_BASE_URL}/admin/reports/ventas-resumen",  # GET - Resumen de ventas (requiere query params: fecha_inicio, fecha_fin)
+    'create': f"{API_BASE_URL}/admin/reports",  # POST - Crear reporte
+    'detail': f"{API_BASE_URL}/admin/reports/{{id}}",  # GET - Obtener un reporte
+    'update_status': f"{API_BASE_URL}/admin/reports/{{id}}/status",  # PATCH - Cambiar estado del reporte
+    'complete': f"{API_BASE_URL}/admin/reports/{{id}}/complete",  # PATCH - Completar reporte
+    'data_charts': f"{API_BASE_URL}/admin/reports/data/charts",  # GET - Obtener datos para gráficos (query params: fecha_inicio, fecha_fin, tipo)
+    'data_kpis': f"{API_BASE_URL}/admin/reports/data/kpis",  # GET - Obtener indicadores (query params: fecha_inicio, fecha_fin)
+    'delete': f"{API_BASE_URL}/admin/reports/{{id}}"  # DELETE - Eliminar reporte
+}
+
 # Endpoints de Pagos
 PAYMENTS_ENDPOINTS = {
     'list': f"{API_BASE_URL}/admin/payments",
@@ -112,14 +126,6 @@ PAYMENTS_ENDPOINTS = {
     'order_payment': f"{API_BASE_URL}/orders/{{order_id}}/payment",
     'confirm_payment': f"{API_BASE_URL}/payments/confirm",
     'payment_methods': f"{API_BASE_URL}/payments/methods"
-}
-
-# Endpoints de Reportes
-REPORTS_ENDPOINTS = {
-    'sales': f"{API_BASE_URL}/admin/reportes/ventas",
-    'inventory': f"{API_BASE_URL}/admin/reportes/inventario",
-    'clients': f"{API_BASE_URL}/admin/reportes/clientes",
-    'orders': f"{API_BASE_URL}/admin/reportes/pedidos"
 }
 
 # Configuración de la UI

@@ -1,0 +1,11 @@
+<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- Icono de ticket promedio: target con moneda -->
+<circle cx="14" cy="14" r="10" stroke="#F59E0B" stroke-width="2" fill="none"/>
+<circle cx="14" cy="14" r="6" stroke="#F59E0B" stroke-width="2" fill="none"/>
+<circle cx="14" cy="14" r="2" fill="#F59E0B"/>
+
+<path d="M14 4v4M14 20v4M4 14h4M20 14h4" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round"/>
+
+<circle cx="14" cy="14" r="4" stroke="#F59E0B" stroke-width="1" fill="none"/>
+<path d="M13 14h2M14 13v2" stroke="#F59E0B" stroke-width="1"/>
+</svg>
