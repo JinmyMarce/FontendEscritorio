@@ -106,28 +106,31 @@ class DualPanelManager(ctk.CTkFrame):
             if chart_type in self.charts_data:
                 print(f"📊 Usando datos en caché para: {chart_type}")
                 self.analysis_panel.update_chart(chart_type, self.charts_data[chart_type])
+                self.analysis_panel.set_loading_state(False)  # Importante: quitar estado de carga
                 return
             
             # Obtener datos desde el servicio
-            result = self.statistics_service.fetch_chart_data(
+            chart_data = self.statistics_service.fetch_chart_data(
                 chart_type, fecha_inicio, fecha_fin
             )
             
-            if result.get('success', True):
-                chart_data = result.get('data', {})
+            # El servicio devuelve directamente los datos o fallback en el nuevo formato
+            if chart_data:
                 self.charts_data[chart_type] = chart_data
                 
                 # Actualizar el panel de análisis
                 self.analysis_panel.update_chart(chart_type, chart_data)
+                self.analysis_panel.set_loading_state(False)  # Importante: quitar estado de carga
                 
                 print(f"✅ Gráfico {chart_type} cargado exitosamente")
                 
             else:
-                print(f"❌ Error al cargar gráfico {chart_type}: {result.get('error', 'Error desconocido')}")
+                print(f"❌ Error al cargar gráfico {chart_type}: Sin datos")
                 # Usar datos de fallback
                 fallback_data = self.get_fallback_chart_data(chart_type)
                 self.charts_data[chart_type] = fallback_data
                 self.analysis_panel.update_chart(chart_type, fallback_data)
+                self.analysis_panel.set_loading_state(False)  # Importante: quitar estado de carga
                 
         except Exception as e:
             print(f"💥 Error al cargar datos del gráfico: {str(e)}")
@@ -135,51 +138,11 @@ class DualPanelManager(ctk.CTkFrame):
             fallback_data = self.get_fallback_chart_data(chart_type)
             self.charts_data[chart_type] = fallback_data
             self.analysis_panel.update_chart(chart_type, fallback_data)
+            self.analysis_panel.set_loading_state(False)  # Importante: quitar estado de carga
     
     def get_fallback_chart_data(self, chart_type: str) -> Dict[str, Any]:
-        """Retorna datos de fallback para el tipo de gráfico"""
-        fallback_data = {
-            "ventas_diarias": {
-                "labels": ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
-                "datasets": [{
-                    "label": "Ventas Diarias",
-                    "data": [850, 1200, 980, 1400, 1650, 1900, 1300],
-                    "borderColor": "#16A34A",
-                    "backgroundColor": "#16A34A"
-                }]
-            },
-            "ventas_mensuales": {
-                "labels": ["Ene", "Feb", "Mar", "Abr", "May", "Jun"],
-                "datasets": [{
-                    "label": "Ventas 2024",
-                    "data": [18000, 22000, 19500, 26000, 28500, 31000],
-                    "borderColor": "#2563EB",
-                    "backgroundColor": "#2563EB"
-                }]
-            },
-            "productos_vendidos": {
-                "labels": ["Producto A", "Producto B", "Producto C", "Producto D", "Producto E"],
-                "datasets": [{
-                    "label": "Unidades Vendidas",
-                    "data": [245, 189, 156, 134, 98],
-                    "borderColor": "#F59E0B",
-                    "backgroundColor": "#F59E0B"
-                }]
-            },
-            "estados_pedidos": {
-                "labels": ["Completado", "Pendiente", "En Proceso", "Cancelado"],
-                "datasets": [{
-                    "label": "Estados",
-                    "data": [68, 18, 10, 4],
-                    "backgroundColor": ["#16A34A", "#F59E0B", "#2563EB", "#DC2626"]
-                }]
-            }
-        }
-        
-        return fallback_data.get(chart_type, {
-            "labels": ["Sin datos"],
-            "datasets": [{"label": "N/A", "data": [0]}]
-        })
+        """Retorna datos de fallback para el tipo de gráfico usando el servicio"""
+        return self.statistics_service.get_fallback_chart_data(chart_type)
     
     def show_detail_modal(self, chart_type: str, chart_data: Dict[str, Any]):
         """Muestra el modal de vista detallada"""

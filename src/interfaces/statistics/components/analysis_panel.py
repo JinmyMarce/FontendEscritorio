@@ -153,49 +153,65 @@ class AnalysisPanel(ctk.CTkFrame):
             self.show_error()
     
     def create_main_chart(self, chart_data: Dict[str, Any]):
-        """Crea el gráfico principal"""
+        """Crea el gráfico principal basado en los datos"""
         try:
-            # Limpiar contenedor
+            # Limpiar contenedor anterior
             for widget in self.chart_container.winfo_children():
                 widget.destroy()
             
-            # Configurar matplotlib
-            plt.style.use('default')
+            # Obtener datos del gráfico
+            labels = chart_data.get('labels', [])
+            datasets = chart_data.get('datasets', [])
+            chart_type = chart_data.get('chart_type', 'line')
+            title = chart_data.get('title', 'Gráfico Estadístico')
+            description = chart_data.get('description', '')
+            chart_config = chart_data.get('chart_config', {})
             
-            # Crear figura más grande para el panel principal
-            fig, ax = plt.subplots(figsize=(10, 5), dpi=100)
+            if not datasets:
+                self.show_placeholder()
+                return
+            
+            # Configurar matplotlib con estilo moderno
+            plt.style.use('default')
+            fig, ax = plt.subplots(figsize=(12, 7))
             fig.patch.set_facecolor('#F8FAFC')
             ax.set_facecolor('#FFFFFF')
             
-            # Obtener datos
-            labels = chart_data.get('labels', [])
-            datasets = chart_data.get('datasets', [])
-            
-            if not datasets:
-                ax.text(0.5, 0.5, 'Sin datos disponibles', ha='center', va='center',
-                       transform=ax.transAxes, fontsize=14, color='#6B7280')
-            else:
-                # Crear gráfico según el tipo
-                if self.current_chart_type == "estados_pedidos":
-                    self._create_pie_chart(ax, labels, datasets[0])
-                elif self.current_chart_type == "productos_vendidos":
+            # Crear gráfico según el tipo
+            if chart_type == "line_dual_axis":
+                self._create_dual_axis_chart(fig, ax, labels, datasets, chart_config)
+            elif chart_type == "area":
+                self._create_area_chart(ax, labels, datasets)
+            elif chart_type in ["line", "ventas_diarias", "ventas_mensuales"]:
+                self._create_line_chart(ax, labels, datasets)
+            elif chart_type in ["bar", "productos_vendidos"]:
+                if datasets:
                     self._create_bar_chart(ax, labels, datasets[0])
-                else:
-                    self._create_line_chart(ax, labels, datasets)
+            elif chart_type in ["pie", "doughnut", "estados_pedidos"]:
+                if datasets:
+                    self._create_pie_chart(ax, labels, datasets[0])
+            else:
+                # Tipo no reconocido, usar línea por defecto
+                self._create_line_chart(ax, labels, datasets)
             
-            # Configurar ejes y estilo
-            if self.current_chart_type != "estados_pedidos":
-                ax.grid(True, alpha=0.3, linestyle='-', linewidth=0.5)
-                ax.set_axisbelow(True)
+            # Configurar título
+            ax.set_title(title, fontsize=16, fontweight='bold', color='#1F2937', pad=20)
             
-            # Estilo de los ejes
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            ax.spines['left'].set_color('#E5E7EB')
-            ax.spines['bottom'].set_color('#E5E7EB')
+            # Configurar escalas según chart_config
+            scales = chart_config.get('scales', {})
+            if 'y' in scales and chart_type != "line_dual_axis":
+                y_config = scales['y']
+                if 'title' in y_config:
+                    ax.set_ylabel(y_config['title'], fontsize=12, color='#6B7280')
             
-            # Configurar labels
-            ax.tick_params(colors='#6B7280', labelsize=10)
+            # Estilo general (no aplicar a gráficos de torta)
+            if chart_type not in ["pie", "doughnut"]:
+                ax.grid(True, alpha=0.3, linestyle='--')
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+                ax.spines['left'].set_color('#E5E7EB')
+                ax.spines['bottom'].set_color('#E5E7EB')
+                ax.tick_params(colors='#6B7280', labelsize=10)
             
             plt.tight_layout(pad=2.0)
             
@@ -211,15 +227,36 @@ class AnalysisPanel(ctk.CTkFrame):
         except Exception as e:
             print(f"Error al crear gráfico principal: {str(e)}")
             self.show_error()
+            
+            # Agregar al contenedor
+            canvas = FigureCanvasTkAgg(fig, master=self.chart_container)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
+            
+            self.canvas_widget = canvas
+            
+            plt.close(fig)  # Cerrar para liberar memoria
+            
+        except Exception as e:
+            print(f"Error al crear gráfico principal: {str(e)}")
+            self.show_error()
     
     def _create_line_chart(self, ax, labels, datasets):
-        """Crea un gráfico de líneas"""
-        colors = ['#16A34A', '#2563EB', '#F59E0B', '#DC2626']
+        """Crea un gráfico de líneas mejorado"""
+        colors = ['#16A34A', '#2563EB', '#F59E0B', '#DC2626', '#8B5CF6']
         
-        for i, dataset in enumerate(datasets[:2]):  # Máximo 2 series
+        for i, dataset in enumerate(datasets):
             data = dataset.get('data', [])
             label = dataset.get('label', f'Serie {i+1}')
-            color = colors[i % len(colors)]
+            
+            # Colores desde el dataset o usar colores por defecto
+            border_color = self._convert_color(dataset.get('borderColor', colors[i % len(colors)]))
+            bg_color = self._convert_color(dataset.get('backgroundColor', border_color))
+            
+            # Configuración de línea
+            line_width = dataset.get('borderWidth', 2)
+            tension = dataset.get('tension', 0.4)
+            fill = dataset.get('fill', False)
             
             if data:
                 # Convertir datos a números
@@ -231,9 +268,22 @@ class AnalysisPanel(ctk.CTkFrame):
                         numeric_data.append(0)
                 
                 x_range = range(len(numeric_data))
-                ax.plot(x_range, numeric_data, color=color, linewidth=3, 
-                       marker='o', markersize=6, label=label, alpha=0.9)
-                ax.fill_between(x_range, numeric_data, alpha=0.2, color=color)
+                
+                # Crear línea con suavizado si tension > 0
+                if tension > 0:
+                    # Línea suavizada
+                    ax.plot(x_range, numeric_data, color=border_color, 
+                           linewidth=line_width, marker='o', markersize=4, 
+                           label=label, alpha=0.9)
+                else:
+                    # Línea recta
+                    ax.plot(x_range, numeric_data, color=border_color, 
+                           linewidth=line_width, marker='o', markersize=4, 
+                           label=label, alpha=0.9, linestyle='-')
+                
+                # Rellenar área si está configurado
+                if fill:
+                    ax.fill_between(x_range, numeric_data, alpha=0.3, color=bg_color)
         
         # Configurar etiquetas del eje X
         if labels:
@@ -304,6 +354,147 @@ class AnalysisPanel(ctk.CTkFrame):
                 text.set_fontsize(11)
                 text.set_color('#374151')
     
+    def _create_dual_axis_chart(self, fig, ax, labels, datasets, chart_config):
+        """Crea un gráfico con doble eje Y"""
+        # Configurar primer eje
+        ax2 = None
+        scales = chart_config.get('scales', {})
+        
+        for i, dataset in enumerate(datasets):
+            data = dataset.get('data', [])
+            label = dataset.get('label', f'Serie {i+1}')
+            y_axis_id = dataset.get('yAxisID', 'y')
+            
+            # Convertir datos a números
+            numeric_data = []
+            for val in data:
+                try:
+                    numeric_data.append(float(val))
+                except (ValueError, TypeError):
+                    numeric_data.append(0)
+            
+            x_range = range(len(numeric_data))
+            
+            # Seleccionar eje según configuración
+            if y_axis_id == 'y1' and ax2 is None:
+                # Crear segundo eje
+                ax2 = ax.twinx()
+                current_ax = ax2
+            else:
+                current_ax = ax
+            
+            # Configurar estilo del dataset - convertir colores RGBA a hex
+            border_color = self._convert_color(dataset.get('borderColor', '#16A34A'))
+            line_style = '-'
+            if 'borderDash' in dataset:
+                line_style = '--'
+            
+            fill = dataset.get('fill', False)
+            tension = dataset.get('tension', 0)
+            
+            # Dibujar línea
+            current_ax.plot(x_range, numeric_data, color=border_color, linewidth=2,
+                           linestyle=line_style, marker='o', markersize=4, 
+                           label=label, alpha=0.9)
+            
+            # Rellenar área si está configurado
+            if fill:
+                bg_color = self._convert_color(dataset.get('backgroundColor', border_color))
+                current_ax.fill_between(x_range, numeric_data, alpha=0.2, color=bg_color)
+        
+        # Configurar etiquetas del eje X
+        if labels:
+            ax.set_xticks(range(len(labels)))
+            ax.set_xticklabels(labels, rotation=45 if len(labels) > 7 else 0)
+        
+        # Configurar etiquetas de los ejes Y
+        if 'y' in scales:
+            y_config = scales['y']
+            if 'title' in y_config:
+                ax.set_ylabel(y_config['title'], fontsize=12, color='#6B7280')
+        
+        if ax2 and 'y1' in scales:
+            y1_config = scales['y1']
+            if 'title' in y1_config:
+                ax2.set_ylabel(y1_config['title'], fontsize=12, color='#6B7280')
+            
+            # Ocultar grid del segundo eje si está configurado
+            if not y1_config.get('grid', True):
+                ax2.grid(False)
+        
+        # Leyendas combinadas
+        lines1, labels1 = ax.get_legend_handles_labels()
+        if ax2:
+            lines2, labels2 = ax2.get_legend_handles_labels()
+            ax.legend(lines1 + lines2, labels1 + labels2, loc='upper left', frameon=False)
+        else:
+            ax.legend(loc='upper left', frameon=False)
+    
+    def _create_area_chart(self, ax, labels, datasets):
+        """Crea un gráfico de área"""
+        colors = ['#16A34A', '#2563EB', '#F59E0B', '#DC2626']
+        
+        for i, dataset in enumerate(datasets):
+            data = dataset.get('data', [])
+            label = dataset.get('label', f'Área {i+1}')
+            
+            # Convertir colores
+            border_color = self._convert_color(dataset.get('borderColor', colors[i % len(colors)]))
+            bg_color = self._convert_color(dataset.get('backgroundColor', border_color))
+            
+            if data:
+                # Convertir datos a números
+                numeric_data = []
+                for val in data:
+                    try:
+                        numeric_data.append(float(val))
+                    except (ValueError, TypeError):
+                        numeric_data.append(0)
+                
+                x_range = range(len(numeric_data))
+                
+                # Crear área rellena
+                ax.fill_between(x_range, numeric_data, alpha=0.6, 
+                               color=bg_color, label=label)
+                
+                # Línea de borde
+                ax.plot(x_range, numeric_data, color=border_color, linewidth=2, alpha=0.8)
+        
+        # Configurar etiquetas del eje X
+        if labels:
+            ax.set_xticks(range(len(labels)))
+            ax.set_xticklabels(labels, rotation=45 if len(labels) > 7 else 0)
+        
+        # Leyenda
+        if len(datasets) > 1:
+            ax.legend(loc='upper left', frameon=False)
+    
+    def _convert_color(self, color_string):
+        """Convierte colores RGBA a formato matplotlib"""
+        if isinstance(color_string, str):
+            # Si es un color rgba(), convertir a hex o usar directamente
+            if color_string.startswith('rgba('):
+                # Extraer valores RGB
+                import re
+                match = re.search(r'rgba\((\d+),\s*(\d+),\s*(\d+),\s*[\d.]+\)', color_string)
+                if match:
+                    r, g, b = map(int, match.groups())
+                    return f'#{r:02x}{g:02x}{b:02x}'
+            elif color_string.startswith('#'):
+                return color_string
+            else:
+                # Mapear colores conocidos
+                color_map = {
+                    'rgba(34, 197, 94, 1)': '#22C55E',
+                    'rgba(59, 130, 246, 1)': '#3B82F6',
+                    'rgba(168, 85, 247, 1)': '#A855F7',
+                    'rgba(16, 185, 129, 1)': '#10B981',
+                    'rgba(245, 158, 11, 1)': '#F59E0B',
+                    'rgba(239, 68, 68, 1)': '#EF4444'
+                }
+                return color_map.get(color_string, '#6B7280')
+        return color_string
+
     def show_error(self):
         """Muestra un mensaje de error"""
         # Limpiar contenedor

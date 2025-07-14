@@ -140,11 +140,11 @@ class StatisticsService:
     
     @staticmethod
     def fetch_chart_data(chart_type, fecha_inicio, fecha_fin):
-        """Obtiene datos específicos para gráficos desde la API"""
+        """Obtiene datos específicos para gráficos desde la API con nuevo formato"""
         try:
             # Construir URL con parámetros para gráficos
             url = f"{REPORTS_ENDPOINTS['data_charts']}?fecha_inicio={fecha_inicio}&fecha_fin={fecha_fin}&tipo={chart_type}"
-            print(f"Solicitando datos de gráfico desde: {url}")
+            print(f"🌐 Solicitando datos de gráfico desde: {url}")
             
             # Obtener token de sesión
             token = SessionManager.get_token()
@@ -152,41 +152,54 @@ class StatisticsService:
             
             # Hacer petición
             response = APIHandler.make_request('get', url, headers=headers)
-            print(f"Respuesta de gráficos: {response}")
             
-            if response['status_code'] == 200:
-                data = response['data']
+            if response.get('status_code') == 200:
+                api_data = response.get('data', {})
                 
-                # Validar estructura de respuesta
-                if 'data' in data and isinstance(data['data'], dict):
-                    return {
-                        'success': True,
-                        'data': data['data'],
-                        'tipo': data.get('tipo', chart_type),
-                        'periodo': data.get('periodo', {})
+                # Verificar si tenemos la nueva estructura de datos
+                if 'chart_data' in api_data:
+                    chart_data = api_data['chart_data']
+                    
+                    # Adaptar el formato de la nueva API al formato esperado por los componentes
+                    adapted_data = {
+                        'labels': chart_data.get('labels', []),
+                        'datasets': chart_data.get('datasets', []),
+                        'chart_type': chart_data.get('chart_type', 'line'),
+                        'title': chart_data.get('title', ''),
+                        'description': chart_data.get('description', ''),
+                        'chart_config': chart_data.get('chart_config', {}),
+                        'additional_data': chart_data.get('additional_data', {})
                     }
+                    
+                    # Procesar datasets para asegurar compatibilidad
+                    for dataset in adapted_data['datasets']:
+                        # Convertir strings numéricos a números
+                        if 'data' in dataset:
+                            numeric_data = []
+                            for val in dataset['data']:
+                                try:
+                                    # Intentar convertir a float si es string
+                                    if isinstance(val, str):
+                                        numeric_data.append(float(val))
+                                    else:
+                                        numeric_data.append(val)
+                                except (ValueError, TypeError):
+                                    numeric_data.append(0)
+                            dataset['data'] = numeric_data
+                    
+                    print(f"✅ Datos de gráfico adaptados correctamente: {chart_type}")
+                    return adapted_data
                 else:
-                    print("Estructura de datos inválida en respuesta de gráficos")
-                    return {
-                        'success': False,
-                        'error': 'Estructura de datos inválida',
-                        'data': StatisticsService.get_fallback_chart_data(chart_type)
-                    }
+                    print("⚠️ Estructura de datos no reconocida, usando fallback")
+                    return StatisticsService.get_fallback_chart_data(chart_type)
             else:
-                print(f"Error en API de gráficos: {response}")
-                return {
-                    'success': False,
-                    'error': f"Error del servidor: {response.get('status_code', 'Desconocido')}",
-                    'data': StatisticsService.get_fallback_chart_data(chart_type)
-                }
+                error_msg = response.get('message', 'Error desconocido')
+                print(f"❌ Error en API de gráficos: {error_msg}")
+                return StatisticsService.get_fallback_chart_data(chart_type)
                 
         except Exception as e:
-            print(f"Error al obtener datos de gráfico: {str(e)}")
-            return {
-                'success': False,
-                'error': str(e),
-                'data': StatisticsService.get_fallback_chart_data(chart_type)
-            }
+            print(f"💥 Error al obtener datos de gráfico: {str(e)}")
+            return StatisticsService.get_fallback_chart_data(chart_type)
     
     @staticmethod
     def get_fallback_data():
@@ -235,79 +248,145 @@ class StatisticsService:
     
     @staticmethod
     def get_fallback_chart_data(chart_type):
-        """Proporciona datos de respaldo para gráficos cuando la API falla"""
-        if chart_type == "ventas_diarias":
-            return {
-                'labels': ['2025-07-01', '2025-07-02', '2025-07-03', '2025-07-04', '2025-07-05', '2025-07-06', '2025-07-07'],
-                'datasets': [
+        """Retorna datos de fallback para gráficos con formato mejorado"""
+        fallback_data = {
+            "ventas_diarias": {
+                "labels": [
+                    "2025-07-03",
+                    "2025-07-10",
+                    "2025-07-11", 
+                    "2025-07-12",
+                    "2025-07-13"
+                ],
+                "datasets": [
                     {
-                        'label': 'Ventas Diarias',
-                        'data': [1250, 1680, 1420, 1890, 2100, 1750, 2300],
-                        'backgroundColor': 'rgba(22, 163, 74, 0.2)',
-                        'borderColor': 'rgba(22, 163, 74, 1)',
-                        'borderWidth': 2
+                        "label": "Ingresos Diarios ($)",
+                        "data": ["52.00", "98.00", "117.00", "153.00", "106.00"],
+                        "backgroundColor": "rgba(34, 197, 94, 0.1)",
+                        "borderColor": "rgba(34, 197, 94, 1)",
+                        "borderWidth": 3,
+                        "fill": True,
+                        "tension": 0.4,
+                        "yAxisID": "y"
                     },
                     {
-                        'label': 'Transacciones',
-                        'data': [15, 22, 18, 25, 28, 21, 32],
-                        'backgroundColor': 'rgba(37, 99, 235, 0.2)',
-                        'borderColor': 'rgba(37, 99, 235, 1)',
-                        'borderWidth': 2
-                    }
-                ]
-            }
-        
-        elif chart_type == "ventas_mensuales":
-            return {
-                'labels': ['2025-01', '2025-02', '2025-03', '2025-04', '2025-05', '2025-06', '2025-07'],
-                'datasets': [
+                        "label": "Número de Transacciones",
+                        "data": [1, 1, 1, 3, 2],
+                        "backgroundColor": "rgba(59, 130, 246, 0.1)",
+                        "borderColor": "rgba(59, 130, 246, 1)",
+                        "borderWidth": 2,
+                        "borderDash": [5, 5],
+                        "fill": False,
+                        "yAxisID": "y1"
+                    },
                     {
-                        'label': 'Ventas Mensuales',
-                        'data': [45000, 52000, 48000, 58000, 62000, 59000, 65000],
-                        'backgroundColor': 'rgba(16, 185, 129, 0.2)',
-                        'borderColor': 'rgba(16, 185, 129, 1)',
-                        'borderWidth': 2,
-                        'fill': True
+                        "label": "Ticket Promedio por Día ($)",
+                        "data": [52, 98, 117, 51, 53],
+                        "backgroundColor": "rgba(168, 85, 247, 0.1)",
+                        "borderColor": "rgba(168, 85, 247, 1)",
+                        "borderWidth": 2,
+                        "pointRadius": 4,
+                        "fill": False,
+                        "yAxisID": "y"
                     }
-                ]
-            }
-        
-        elif chart_type == "productos_vendidos":
-            return {
-                'labels': ['Producto A', 'Producto B', 'Producto C', 'Producto D', 'Producto E', 
-                          'Producto F', 'Producto G', 'Producto H', 'Producto I', 'Producto J'],
-                'datasets': [
+                ],
+                "chart_type": "line_dual_axis",
+                "title": "Evolución de Ventas Diarias",
+                "description": "Análisis de ingresos y volumen de transacciones por día",
+                "chart_config": {
+                    "scales": {
+                        "y": {"title": "Ingresos ($)", "position": "left"},
+                        "y1": {"title": "Transacciones", "position": "right", "grid": False}
+                    }
+                }
+            },
+            "ventas_mensuales": {
+                "labels": ["Julio 2025"],
+                "datasets": [
                     {
-                        'label': 'Unidades Vendidas',
-                        'data': [850, 720, 650, 580, 480, 420, 380, 320, 280, 250],
-                        'backgroundColor': [
-                            '#16A34A', '#2563EB', '#F59E0B', '#EF4444', '#8B5CF6',
-                            '#10B981', '#3B82F6', '#F97316', '#DC2626', '#A855F7'
+                        "label": "Ingresos Mensuales ($)",
+                        "data": ["526.00"],
+                        "backgroundColor": "rgba(16, 185, 129, 0.3)",
+                        "borderColor": "rgba(16, 185, 129, 1)",
+                        "borderWidth": 3,
+                        "fill": True,
+                        "tension": 0.4,
+                        "pointBackgroundColor": "rgba(16, 185, 129, 1)",
+                        "pointBorderColor": "#FFFFFF",
+                        "pointBorderWidth": 2,
+                        "pointRadius": 5
+                    }
+                ],
+                "chart_type": "area",
+                "title": "Evolución de Ventas Mensuales",
+                "description": "Análisis de tendencias y estacionalidad de ingresos",
+                "additional_data": {
+                    "transacciones_por_mes": [8],
+                    "dias_con_ventas": [5],
+                    "ticket_promedio_mes": ["65.75"],
+                    "años_meses": ["2025-07"]
+                },
+                "chart_config": {
+                    "scales": {
+                        "x": {"title": "Período"},
+                        "y": {"title": "Ingresos ($)", "beginAtZero": True}
+                    },
+                    "plugins": {
+                        "legend": {"display": True, "position": "top"},
+                        "tooltip": {
+                            "mode": "index",
+                            "intersect": False,
+                            "callbacks": {
+                                "afterLabel": "Mostrar transacciones y días activos"
+                            }
+                        }
+                    },
+                    "interaction": {
+                        "mode": "nearest",
+                        "axis": "x",
+                        "intersect": False
+                    }
+                }
+            },
+            "productos_vendidos": {
+                "labels": ["Producto A", "Producto B", "Producto C", "Producto D", "Producto E"],
+                "datasets": [
+                    {
+                        "label": "Unidades Vendidas",
+                        "data": [245, 189, 156, 134, 98],
+                        "backgroundColor": "rgba(251, 191, 36, 0.8)",
+                        "borderColor": "rgba(251, 191, 36, 1)",
+                        "borderWidth": 2
+                    }
+                ],
+                "chart_type": "bar",
+                "title": "Productos Más Vendidos",
+                "description": "Ranking de productos por unidades vendidas"
+            },
+            "estados_pedidos": {
+                "labels": ["Completado", "Pendiente", "En Proceso", "Cancelado"],
+                "datasets": [
+                    {
+                        "label": "Estados de Pedidos",
+                        "data": [68, 18, 10, 4],
+                        "backgroundColor": [
+                            "rgba(34, 197, 94, 0.8)",
+                            "rgba(251, 191, 36, 0.8)",
+                            "rgba(59, 130, 246, 0.8)",
+                            "rgba(239, 68, 68, 0.8)"
                         ]
                     }
-                ]
+                ],
+                "chart_type": "pie",
+                "title": "Distribución de Estados de Pedidos",
+                "description": "Porcentaje de pedidos por estado"
             }
+        }
         
-        elif chart_type == "estados_pedidos":
-            return {
-                'labels': ['Completado', 'Pendiente', 'En Proceso', 'Cancelado'],
-                'datasets': [
-                    {
-                        'data': [75, 15, 8, 2],
-                        'backgroundColor': ['#28a745', '#ffc107', '#17a2b8', '#dc3545']
-                    }
-                ]
-            }
-        
-        else:
-            # Datos genéricos para tipos no reconocidos
-            return {
-                'labels': ['Sin datos'],
-                'datasets': [
-                    {
-                        'label': 'Sin datos disponibles',
-                        'data': [0],
-                        'backgroundColor': '#6B7280'
-                    }
-                ]
-            }
+        return fallback_data.get(chart_type, {
+            "labels": ["Sin datos"],
+            "datasets": [{"label": "N/A", "data": [0]}],
+            "chart_type": "line",
+            "title": "Datos no disponibles",
+            "description": "No se pudieron cargar los datos"
+        })
