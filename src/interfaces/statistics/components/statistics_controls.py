@@ -62,14 +62,22 @@ class StatisticsControls(ctk.CTkFrame):
             )
             self.period_label.pack(side="left", padx=(0, 10))
             
-            # Selector de período con azul profesional
-            self.periodo_var = StringVar(value="Último mes")
+            # Selector de período con azul profesional y opciones mejoradas
+            self.periodo_var = StringVar(value="Mes actual")
             self.periodo_selector = ctk.CTkOptionMenu(
                 self.controls_frame,
                 variable=self.periodo_var,
-                values=["Último mes", "Últimos 7 días", "Últimos 3 meses", "Año actual"],
+                values=[
+                    "Mes actual",
+                    "Último mes", 
+                    "Últimos 7 días",
+                    "Últimos 30 días",
+                    "Trimestre actual",
+                    "Últimos 3 meses",
+                    "Año actual"
+                ],
                 command=self._on_period_changed,
-                width=150,
+                width=170,
                 fg_color="#2563EB",  # Azul profesional
                 button_color="#1D4ED8",
                 button_hover_color="#1E40AF"

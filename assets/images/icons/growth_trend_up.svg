@@ -1,0 +1,9 @@
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- Icono tendencia ascendente para crecimientos buenos (+50%) -->
+<path d="M2 12L6 8L8 10L14 4" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<path d="M11 4H14V7" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<circle cx="6" cy="8" r="1.5" fill="#22C55E"/>
+<circle cx="8" cy="10" r="1.5" fill="#22C55E"/>
+<circle cx="2" cy="12" r="1.5" fill="#22C55E"/>
+<circle cx="14" cy="4" r="1.5" fill="#22C55E"/>
+</svg>

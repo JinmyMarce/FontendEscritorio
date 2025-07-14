@@ -103,12 +103,16 @@ class KPICard(ctk.CTkFrame):
                 formatted_value = f"{int(value):,}"
             
             self.value_label.configure(text=formatted_value)
+            
+            # Forzar actualización de la interfaz
+            self.value_label.update_idletasks()
+            
         except Exception as e:
-            print(f"Error al actualizar valor KPI: {str(e)}")
+            print(f"Error al actualizar valor KPI '{self.title}': {str(e)}")
             self.value_label.configure(text="Error")
     
     def update_growth(self, growth_data):
-        """Actualiza el indicador de crecimiento con datos más detallados"""
+        """Actualiza el indicador de crecimiento con iconos SVG personalizados"""
         try:
             if isinstance(growth_data, dict):
                 # Nueva estructura con más información
@@ -117,29 +121,36 @@ class KPICard(ctk.CTkFrame):
                 valor_anterior = growth_data.get('valor_anterior', 0)
                 
                 if porcentaje > 0:
-                    # Formatear diferentes rangos de crecimiento
+                    # Formatear diferentes rangos de crecimiento con iconos
                     if porcentaje >= 1000:
-                        growth_text = f"🚀 +{porcentaje:.0f}% vs período anterior"
+                        icon_name = "growth_rocket"
+                        growth_text = f"+{porcentaje:.0f}% vs período anterior"
                         growth_color = "#059669"  # Verde más intenso para crecimientos enormes
                     elif porcentaje >= 100:
-                        growth_text = f"🔥 +{porcentaje:.0f}% vs período anterior"
+                        icon_name = "growth_fire"
+                        growth_text = f"+{porcentaje:.0f}% vs período anterior"
                         growth_color = "#16A34A"  # Verde brillante
                     elif porcentaje >= 50:
-                        growth_text = f"📈 +{porcentaje:.1f}% vs período anterior"
+                        icon_name = "growth_trend_up"
+                        growth_text = f"+{porcentaje:.1f}% vs período anterior"
                         growth_color = "#22C55E"  # Verde normal
                     else:
-                        growth_text = f"↗ +{porcentaje:.1f}% vs período anterior"
+                        icon_name = "growth_arrow_up"
+                        growth_text = f"+{porcentaje:.1f}% vs período anterior"
                         growth_color = "#22C55E"
                         
                 elif porcentaje < 0:
                     if abs(porcentaje) >= 50:
-                        growth_text = f"📉 {porcentaje:.1f}% vs período anterior"
+                        icon_name = "growth_trend_down"
+                        growth_text = f"{porcentaje:.1f}% vs período anterior"
                         growth_color = "#DC2626"  # Rojo más intenso
                     else:
-                        growth_text = f"↘ {porcentaje:.1f}% vs período anterior"
+                        icon_name = "growth_arrow_down"
+                        growth_text = f"{porcentaje:.1f}% vs período anterior"
                         growth_color = "#F87171"  # Rojo suave
                 else:
-                    growth_text = "→ Sin cambios vs período anterior"
+                    icon_name = "growth_neutral"
+                    growth_text = "Sin cambios vs período anterior"
                     growth_color = "#9CA3AF"  # Gris neutro
                     
             else:
@@ -147,25 +158,82 @@ class KPICard(ctk.CTkFrame):
                 growth_value = growth_data if isinstance(growth_data, (int, float)) else 0
                 
                 if growth_value > 0:
-                    growth_text = f"↗ +{growth_value:.1f}% vs período anterior"
+                    icon_name = "growth_arrow_up"
+                    growth_text = f"+{growth_value:.1f}% vs período anterior"
                     growth_color = "#22C55E"
                 elif growth_value < 0:
-                    growth_text = f"↘ {growth_value:.1f}% vs período anterior"
+                    icon_name = "growth_arrow_down"
+                    growth_text = f"{growth_value:.1f}% vs período anterior"
                     growth_color = "#F87171"
                 else:
-                    growth_text = "→ Sin cambios vs período anterior"
+                    icon_name = "growth_neutral"
+                    growth_text = "Sin cambios vs período anterior"
                     growth_color = "#9CA3AF"
             
-            self.growth_label.configure(
-                text=growth_text,
-                text_color=growth_color
-            )
+            # Crear el frame de crecimiento con icono si no existe
+            self._update_growth_with_icon(icon_name, growth_text, growth_color)
+            
         except Exception as e:
             print(f"Error al actualizar crecimiento: {str(e)}")
             self.growth_label.configure(
                 text="Sin datos de comparación",
                 text_color="#9CA3AF"
             )
+    
+    def _update_growth_with_icon(self, icon_name, text, color):
+        """Actualiza el crecimiento con icono y texto"""
+        try:
+            # Limpiar el frame de crecimiento actual
+            for widget in self.growth_frame.winfo_children():
+                widget.destroy()
+            
+            # Frame horizontal para icono + texto
+            content_frame = ctk.CTkFrame(self.growth_frame, fg_color="transparent")
+            content_frame.pack()
+            
+            # Intentar cargar el icono
+            try:
+                icon_image = icon_manager.load_icon(icon_name, size=(16, 16))
+                icon_label = ctk.CTkLabel(
+                    content_frame,
+                    text="",
+                    image=icon_image
+                )
+                icon_label.pack(side="left", padx=(0, 8))
+            except Exception as e:
+                print(f"Error al cargar icono {icon_name}: {str(e)}")
+                # Fallback a texto simple
+                fallback_icons = {
+                    "growth_rocket": "🚀",
+                    "growth_fire": "🔥",
+                    "growth_trend_up": "📈",
+                    "growth_arrow_up": "↗",
+                    "growth_trend_down": "📉",
+                    "growth_arrow_down": "↘",
+                    "growth_neutral": "→"
+                }
+                fallback_text = fallback_icons.get(icon_name, "•")
+                icon_label = ctk.CTkLabel(
+                    content_frame,
+                    text=fallback_text,
+                    font=("Arial", 12),
+                    text_color=color
+                )
+                icon_label.pack(side="left", padx=(0, 5))
+            
+            # Texto del crecimiento
+            text_label = ctk.CTkLabel(
+                content_frame,
+                text=text,
+                font=("Arial", 13),
+                text_color=color
+            )
+            text_label.pack(side="left")
+            
+        except Exception as e:
+            print(f"Error al actualizar crecimiento con icono: {str(e)}")
+            # Fallback al método anterior
+            self.growth_label.configure(text=text, text_color=color)
     
     def update_context(self, context_data):
         """Actualiza con información contextual (para casos como conversion_rate)"""
@@ -192,7 +260,24 @@ class KPICard(ctk.CTkFrame):
     
     def clear_growth(self):
         """Limpia el indicador de crecimiento"""
-        self.growth_label.configure(text="")
+        try:
+            # Limpiar todos los widgets del frame de crecimiento
+            for widget in self.growth_frame.winfo_children():
+                widget.destroy()
+            
+            # Restaurar el label original si es necesario
+            if not hasattr(self, 'growth_label') or not self.growth_label.winfo_exists():
+                self.growth_label = ctk.CTkLabel(
+                    self.growth_frame,
+                    text="",
+                    font=("Arial", 13),
+                    text_color="#6B7280"
+                )
+                self.growth_label.pack()
+            else:
+                self.growth_label.configure(text="")
+        except Exception as e:
+            print(f"Error al limpiar crecimiento: {str(e)}")
     
     def set_loading(self):
         """Muestra estado de carga"""

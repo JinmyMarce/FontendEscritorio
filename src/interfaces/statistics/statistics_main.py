@@ -114,16 +114,22 @@ class EstadisticasVentas(ctk.CTkFrame):
             
             if result['success']:
                 # Actualizar KPIs con datos reales
-                print(f"✅ KPIs cargados exitosamente: {result.get('mensaje', '')}")
+                print(f"✅ KPIs cargados exitosamente para período: {fecha_inicio} a {fecha_fin}")
                 self.kpi_grid.update_kpi_data(result['data'])
                 
                 # Mostrar información del período si está disponible
                 if 'periodo' in result:
                     periodo_info = result['periodo']
-                    print(f"📅 Período actual: {periodo_info.get('actual', {})}")
-                    print(f"📅 Período anterior: {periodo_info.get('anterior', {})}")
+                    actual = periodo_info.get('actual', {})
+                    anterior = periodo_info.get('anterior', {})
+                    
+                    print(f"📅 Período actual: {actual.get('fecha_inicio')} a {actual.get('fecha_fin')} ({actual.get('dias', 0)} días)")
+                    print(f"📅 Período anterior: {anterior.get('fecha_inicio')} a {anterior.get('fecha_fin')} ({anterior.get('dias', 0)} días)")
+                    
+                    # Opcional: Mostrar información del período en la interfaz
+                    self.update_period_info(periodo_info)
             else:
-                print(f"❌ Error en API: {result.get('error', 'Error desconocido')}")
+                print(f"❌ Error al cargar KPIs: {result.get('error', 'Error desconocido')}")
                 # Usar datos de fallback
                 fallback_data = self.statistics_service.get_fallback_data()
                 self.kpi_grid.update_kpi_data(fallback_data)
@@ -149,6 +155,25 @@ class EstadisticasVentas(ctk.CTkFrame):
             component.pack(**pack_options)
         except Exception as e:
             print(f"Error al agregar componente personalizado: {str(e)}")
+    
+    def update_period_info(self, periodo_info):
+        """Actualiza la información del período en la interfaz"""
+        try:
+            if hasattr(self, 'controls'):
+                actual = periodo_info.get('actual', {})
+                if actual:
+                    fecha_inicio = actual.get('fecha_inicio', '')
+                    fecha_fin = actual.get('fecha_fin', '')
+                    dias = actual.get('dias', 0)
+                    
+                    # Opcional: Agregar tooltip o label con información del período
+                    period_text = f"{fecha_inicio} a {fecha_fin} ({dias} días)"
+                    print(f"🗓️ Período mostrado: {period_text}")
+                    
+                    # Aquí podrías agregar un label o tooltip si quieres mostrar esta info en la UI
+                    
+        except Exception as e:
+            print(f"Error al actualizar información del período: {str(e)}")
 
 
 def main():

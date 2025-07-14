@@ -13,9 +13,15 @@ class StatisticsIconManager:
     def __init__(self):
         self.icons_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
-            "assets", "icons", "statistics"
+            "assets", "images", "icons"
         )
         self.icon_cache = {}
+        print(f"🔧 IconManager iniciado. Ruta de iconos: {self.icons_path}")
+        
+    def clear_cache(self):
+        """Limpia el cache de iconos"""
+        self.icon_cache.clear()
+        print("🧹 Cache de iconos limpiado")
     
     def get_icon_path(self, icon_name, extension="png"):
         """Obtiene la ruta completa de un icono"""
@@ -23,7 +29,7 @@ class StatisticsIconManager:
     
     def load_icon(self, icon_name, size=(32, 32), color=None):
         """
-        Carga un icono desde archivos PNG
+        Carga un icono desde archivos PNG o SVG
         
         Args:
             icon_name (str): Nombre del archivo de icono sin extensión
@@ -37,20 +43,55 @@ class StatisticsIconManager:
             cache_key = f"{icon_name}_{size[0]}x{size[1]}"
             
             if cache_key in self.icon_cache:
+                print(f"📦 Usando icono desde cache: {icon_name}")
                 return self.icon_cache[cache_key]
             
-            # Buscar archivo PNG
+            # Intentar cargar SVG primero, luego PNG
+            svg_path = self.get_icon_path(icon_name, "svg")
             png_path = self.get_icon_path(icon_name, "png")
             
-            if os.path.exists(png_path):
+            image = None
+            
+            if os.path.exists(svg_path):
+                # Cargar SVG usando cairosvg y PIL
+                try:
+                    import cairosvg
+                    from io import BytesIO
+                    
+                    print(f"📦 Cargando SVG: {svg_path}")
+                    
+                    # Convertir SVG a PNG en memoria
+                    png_data = cairosvg.svg2png(
+                        url=svg_path,
+                        output_width=size[0],
+                        output_height=size[1]
+                    )
+                    
+                    # Cargar desde bytes
+                    image = Image.open(BytesIO(png_data))
+                    print(f"✅ SVG cargado exitosamente: {icon_name}")
+                    
+                except ImportError:
+                    print("❌ cairosvg no está instalado, intentando con PNG...")
+                    image = None
+                except Exception as e:
+                    print(f"❌ Error al cargar SVG {svg_path}: {str(e)}")
+                    image = None
+            else:
+                print(f"❌ Archivo SVG no encontrado: {svg_path}")
+            
+            if image is None and os.path.exists(png_path):
                 # Cargar imagen PNG
+                print(f"📦 Cargando PNG: {png_path}")
                 image = Image.open(png_path)
                 # Redimensionar si es necesario
                 if image.size != size:
                     image = image.resize(size, Image.Resampling.LANCZOS)
-            else:
+                print(f"✅ PNG cargado exitosamente: {icon_name}")
+                    
+            if image is None:
                 # Crear icono de respaldo
-                print(f"Archivo no encontrado: {png_path}")
+                print(f"⚠️ Creando icono de fallback para: {icon_name}")
                 image = self._create_fallback_icon(icon_name, size, color)
             
             # Crear CTkImage
@@ -62,7 +103,9 @@ class StatisticsIconManager:
             return ctk_image
             
         except Exception as e:
-            print(f"Error al cargar icono {icon_name}: {str(e)}")
+            print(f"💥 Error crítico al cargar icono {icon_name}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return self._create_fallback_icon("default", size, color)
     
     def _create_fallback_icon(self, icon_name, size=(32, 32), color=None):
@@ -92,6 +135,8 @@ class StatisticsIconManager:
                 self._draw_conversion_icon(draw, size, color_rgb)
             elif icon_name == "statistics":
                 self._draw_statistics_icon(draw, size, color_rgb)
+            elif icon_name.startswith("growth_"):
+                self._draw_growth_icon(draw, size, color_rgb, icon_name)
             else:
                 self._draw_default_icon(draw, size, color_rgb)
             
@@ -229,7 +274,15 @@ class StatisticsIconManager:
             'sales': '$',
             'orders': '📦',
             'target': '🎯',
-            'conversion': '📊'
+            'conversion': '📊',
+            'statistics': '📈',
+            'growth_arrow_up': '↗️',
+            'growth_arrow_down': '↘️',
+            'growth_trend_up': '📈',
+            'growth_trend_down': '📉',
+            'growth_rocket': '🚀',
+            'growth_fire': '🔥',
+            'growth_neutral': '➡️'
         }
         
         text = text_map.get(icon_name, '?')
@@ -254,6 +307,106 @@ class StatisticsIconManager:
         draw.text((x, y), text, fill="#16A34A", font=font)
         
         return image
+    
+    def _draw_growth_icon(self, draw, size, color, icon_name):
+        """Dibuja iconos de crecimiento"""
+        w, h = size
+        center_x, center_y = w//2, h//2
+        
+        if icon_name == "growth_arrow_up":
+            # Flecha hacia arriba
+            points = [
+                (center_x, h//4),  # Punta
+                (center_x - w//4, center_y),  # Izquierda
+                (center_x - w//8, center_y),  # Base izquierda
+                (center_x - w//8, h*3//4),  # Abajo izquierda
+                (center_x + w//8, h*3//4),  # Abajo derecha
+                (center_x + w//8, center_y),  # Base derecha
+                (center_x + w//4, center_y),  # Derecha
+            ]
+            draw.polygon(points, fill=color)
+            
+        elif icon_name == "growth_arrow_down":
+            # Flecha hacia abajo
+            points = [
+                (center_x, h*3//4),  # Punta
+                (center_x - w//4, center_y),  # Izquierda
+                (center_x - w//8, center_y),  # Base izquierda
+                (center_x - w//8, h//4),  # Arriba izquierda
+                (center_x + w//8, h//4),  # Arriba derecha
+                (center_x + w//8, center_y),  # Base derecha
+                (center_x + w//4, center_y),  # Derecha
+            ]
+            draw.polygon(points, fill=color)
+            
+        elif icon_name == "growth_trend_up":
+            # Línea de tendencia ascendente
+            points = [
+                (w//8, h*3//4),
+                (w*3//8, h//2),
+                (w*5//8, h*3//8),
+                (w*7//8, h//4)
+            ]
+            for i in range(len(points)-1):
+                draw.line([points[i], points[i+1]], fill=color, width=3)
+            # Puntos
+            for point in points:
+                draw.ellipse([point[0]-2, point[1]-2, point[0]+2, point[1]+2], fill=color)
+                
+        elif icon_name == "growth_trend_down":
+            # Línea de tendencia descendente
+            points = [
+                (w//8, h//4),
+                (w*3//8, h*3//8),
+                (w*5//8, h//2),
+                (w*7//8, h*3//4)
+            ]
+            for i in range(len(points)-1):
+                draw.line([points[i], points[i+1]], fill=color, width=3)
+            # Puntos
+            for point in points:
+                draw.ellipse([point[0]-2, point[1]-2, point[0]+2, point[1]+2], fill=color)
+                
+        elif icon_name == "growth_rocket":
+            # Cohete simple
+            # Cuerpo del cohete
+            draw.ellipse([center_x-w//6, center_y-h//3, center_x+w//6, center_y+h//3], fill=color)
+            # Punta
+            draw.polygon([
+                (center_x, center_y-h//3),
+                (center_x-w//8, center_y-h//4),
+                (center_x+w//8, center_y-h//4)
+            ], fill=color)
+            # Llamas
+            flame_color = (255, 140, 0)  # Naranja
+            draw.polygon([
+                (center_x, center_y+h//3),
+                (center_x-w//8, center_y+h//2),
+                (center_x+w//8, center_y+h//2)
+            ], fill=flame_color)
+            
+        elif icon_name == "growth_fire":
+            # Fuego simple
+            # Llama principal
+            flame_points = [
+                (center_x, center_y-h//3),  # Punta
+                (center_x-w//6, center_y-h//6),
+                (center_x-w//8, center_y+h//6),
+                (center_x, center_y+h//4),
+                (center_x+w//8, center_y+h//6),
+                (center_x+w//6, center_y-h//6),
+            ]
+            draw.polygon(flame_points, fill=color)
+            
+        elif icon_name == "growth_neutral":
+            # Línea horizontal (sin cambio)
+            draw.line([w//4, center_y, w*3//4, center_y], fill=color, width=3)
+            draw.ellipse([w//4-2, center_y-2, w//4+2, center_y+2], fill=color)
+            draw.ellipse([w*3//4-2, center_y-2, w*3//4+2, center_y+2], fill=color)
+            
+        else:
+            # Icono por defecto para crecimiento
+            self._draw_default_icon(draw, size, color)
 
 # Instancia global del gestor de iconos
 icon_manager = StatisticsIconManager()

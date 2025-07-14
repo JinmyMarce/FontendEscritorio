@@ -113,6 +113,9 @@ class KPIGrid(ctk.CTkFrame):
                 else:
                     # Sin datos
                     card.set_error("Sin datos")
+        
+            # Forzar actualización de la interfaz
+            self.update_idletasks()
                     
         except Exception as e:
             print(f"Error al actualizar KPIs: {str(e)}")

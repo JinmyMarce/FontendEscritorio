@@ -11,25 +11,86 @@ class StatisticsService:
     
     @staticmethod
     def get_date_range(periodo):
-        """Obtiene el rango de fechas según el período seleccionado"""
+        """Obtiene el rango de fechas según el período seleccionado con lógica mejorada"""
         try:
             today = datetime.now()
             
             if periodo == "Últimos 7 días":
+                # Últimos 7 días completos (desde hace 7 días hasta ayer)
                 start_date = today - timedelta(days=7)
+                end_date = today - timedelta(days=1)
+                
             elif periodo == "Último mes":
+                # Mes pasado completo (1 al último día del mes anterior)
+                if today.month == 1:
+                    # Si es enero, el mes anterior es diciembre del año pasado
+                    start_date = datetime(today.year - 1, 12, 1)
+                    end_date = datetime(today.year, 1, 1) - timedelta(days=1)
+                else:
+                    # Primer día del mes anterior
+                    start_date = datetime(today.year, today.month - 1, 1)
+                    # Último día del mes anterior
+                    end_date = datetime(today.year, today.month, 1) - timedelta(days=1)
+                    
+            elif periodo == "Mes actual":
+                # Mes actual completo (desde el día 1 hasta el último día del mes)
+                start_date = datetime(today.year, today.month, 1)
+                # Último día del mes actual
+                if today.month == 12:
+                    end_date = datetime(today.year + 1, 1, 1) - timedelta(days=1)
+                else:
+                    end_date = datetime(today.year, today.month + 1, 1) - timedelta(days=1)
+                    
+            elif periodo == "Últimos 30 días":
+                # Últimos 30 días desde hoy hacia atrás
                 start_date = today - timedelta(days=30)
+                end_date = today
+                
             elif periodo == "Últimos 3 meses":
-                start_date = today - timedelta(days=90)
+                # Últimos 3 meses completos
+                if today.month <= 3:
+                    # Si estamos en los primeros 3 meses, ir al año anterior
+                    start_date = datetime(today.year - 1, today.month + 9, 1)
+                else:
+                    start_date = datetime(today.year, today.month - 3, 1)
+                # Último día del mes anterior al actual
+                end_date = datetime(today.year, today.month, 1) - timedelta(days=1)
+                
+            elif periodo == "Trimestre actual":
+                # Trimestre actual completo
+                current_quarter = (today.month - 1) // 3 + 1
+                start_month = (current_quarter - 1) * 3 + 1
+                start_date = datetime(today.year, start_month, 1)
+                
+                if current_quarter == 4:
+                    end_date = datetime(today.year + 1, 1, 1) - timedelta(days=1)
+                else:
+                    end_month = current_quarter * 3 + 1
+                    end_date = datetime(today.year, end_month, 1) - timedelta(days=1)
+                    
             elif periodo == "Año actual":
+                # Todo el año actual hasta hoy
                 start_date = datetime(today.year, 1, 1)
+                end_date = today
+                
             else:
+                # Fallback: Últimos 30 días
+                print(f"Período no reconocido: {periodo}, usando últimos 30 días")
                 start_date = today - timedelta(days=30)
+                end_date = today
             
-            return start_date.strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d")
+            # Formatear las fechas para la API
+            fecha_inicio = start_date.strftime("%Y-%m-%d")
+            fecha_fin = end_date.strftime("%Y-%m-%d")
+            
+            print(f"📅 Período '{periodo}': {fecha_inicio} a {fecha_fin} ({(end_date - start_date).days + 1} días)")
+            
+            return fecha_inicio, fecha_fin
             
         except Exception as e:
             print(f"Error al obtener rango de fechas: {str(e)}")
+            import traceback
+            traceback.print_exc()
             # Retornar último mes por defecto
             today = datetime.now()
             start_date = today - timedelta(days=30)
@@ -41,7 +102,7 @@ class StatisticsService:
         try:
             # Construir URL con parámetros
             url = f"{REPORTS_ENDPOINTS['data_kpis']}?fecha_inicio={fecha_inicio}&fecha_fin={fecha_fin}"
-            print(f"Solicitando KPIs desde: {url}")
+            print(f"🌐 Consultando KPIs: {fecha_inicio} a {fecha_fin}")
             
             # Obtener token de sesión
             token = SessionManager.get_token()
@@ -49,24 +110,32 @@ class StatisticsService:
             
             # Hacer petición
             response = APIHandler.make_request('get', url, headers=headers)
-            print(f"Respuesta de KPIs: {response}")
             
             if response.get('status_code') == 200:
                 data = response.get('data', {})
+                
+                # Verificar la estructura exacta de los datos
+                if 'data' in data:
+                    kpi_data = data.get('data', {})
+                else:
+                    print("⚠️ No se encontró la clave 'data' en la respuesta")
+                    kpi_data = {}
+                
                 # Procesar la nueva estructura de respuesta
-                return {
+                result = {
                     'success': True, 
-                    'data': data.get('data', {}),
+                    'data': kpi_data,
                     'periodo': data.get('periodo', {}),
                     'mensaje': data.get('mensaje', '')
                 }
+                return result
             else:
                 error_msg = response.get('message', 'Error desconocido')
-                print(f"Error en API: {error_msg}")
+                print(f"❌ Error en API: {error_msg} (Status: {response.get('status_code')})")
                 return {'success': False, 'error': error_msg}
                 
         except Exception as e:
-            print(f"Error al conectar con la API: {str(e)}")
+            print(f"💥 Error al conectar con la API: {str(e)}")
             return {'success': False, 'error': str(e)}
     
     @staticmethod
