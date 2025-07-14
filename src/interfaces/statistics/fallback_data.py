@@ -158,65 +158,112 @@ class FallbackDataProvider:
             },
             
             "productos_vendidos": {
-                "labels": ["Fresa Orgánica 500g", "Lechuga Hidropónica", "Tomate Cherry 250g", "Espinaca Baby 200g", "Apio Fresco 300g"],
+                "labels": [
+                    "Frescura Familiar - 5kg",
+                    "Doble Dulzura - 2kg", 
+                    "Delicia Andina - 1kg"
+                ],
                 "datasets": [
                     {
-                        "label": "Unidades Vendidas",
-                        "data": [45, 38, 32, 28, 22],
+                        "label": "Ingresos Generados ($)",
+                        "data": [416.00, 161.00, 143.00],
                         "backgroundColor": [
-                            "rgba(239, 68, 68, 0.8)",   # Rojo para fresas
-                            "rgba(34, 197, 94, 0.8)",   # Verde para lechuga
-                            "rgba(245, 158, 11, 0.8)",  # Naranja para tomate
-                            "rgba(16, 185, 129, 0.8)",  # Verde esmeralda para espinaca
-                            "rgba(59, 130, 246, 0.8)"   # Azul para apio
+                            "#10B981",
+                            "#059669", 
+                            "#047857",
+                            "#065F46",
+                            "#064E3B",
+                            "#3B82F6",
+                            "#2563EB",
+                            "#1D4ED8",
+                            "#1E40AF",
+                            "#1E3A8A"
                         ],
-                        "borderColor": [
-                            "rgba(239, 68, 68, 1)",
-                            "rgba(34, 197, 94, 1)",
-                            "rgba(245, 158, 11, 1)",
-                            "rgba(16, 185, 129, 1)",
-                            "rgba(59, 130, 246, 1)"
-                        ],
-                        "borderWidth": 2
+                        "borderColor": "#374151",
+                        "borderWidth": 1,
+                        "yAxisID": "y"
                     }
                 ],
-                "chart_type": "bar",
-                "title": "Top 5 Productos Más Vendidos",
-                "description": "Ranking de productos orgánicos por cantidad de ventas",
+                "chart_type": "horizontal_bar",
+                "title": "Top 10 Productos por Ingresos",
+                "description": "Ranking de productos más rentables del período",
                 "additional_data": {
-                    "precios_promedio": [12.50, 8.90, 15.30, 11.20, 7.80],
-                    "ingresos_por_producto": [562.50, 338.20, 489.60, 313.60, 171.60]
+                    "unidades_vendidas": [8, 7, 11],
+                    "pedidos_incluidos": [6, 6, 9],
+                    "cantidad_promedio_por_pedido": [1.3, 1.2, 1.2]
+                },
+                "chart_config": {
+                    "indexAxis": "y",
+                    "responsive": True,
+                    "plugins": {
+                        "legend": {
+                            "display": False
+                        },
+                        "tooltip": {
+                            "callbacks": {
+                                "afterLabel": "Mostrar unidades vendidas y pedidos"
+                            }
+                        }
+                    }
                 }
             },
             
             "estados_pedidos": {
-                "labels": ["Completado", "En Proceso", "Pendiente", "Cancelado"],
+                "labels": [
+                    "Pendientes de Procesar",
+                    "Confirmado", 
+                    "Cancelados",
+                    "En Camino al Cliente",
+                    "Preparando",
+                    "Entregados Exitosamente"
+                ],
                 "datasets": [
                     {
-                        "label": "Distribución de Estados",
-                        "data": [8, 3, 2, 1],
+                        "label": "Pedidos por Estado",
+                        "data": [4, 3, 2, 2, 2, 1],
                         "backgroundColor": [
-                            "rgba(34, 197, 94, 0.8)",   # Verde para completado
-                            "rgba(59, 130, 246, 0.8)",  # Azul para en proceso
-                            "rgba(245, 158, 11, 0.8)",  # Naranja para pendiente
-                            "rgba(239, 68, 68, 0.8)"    # Rojo para cancelado
+                            "#FCD34D",
+                            "#60A5FA",
+                            "#34D399",
+                            "#10B981", 
+                            "#F87171",
+                            "#F59E0B"
                         ],
-                        "borderColor": [
-                            "rgba(34, 197, 94, 1)",
-                            "rgba(59, 130, 246, 1)",
-                            "rgba(245, 158, 11, 1)",
-                            "rgba(239, 68, 68, 1)"
-                        ],
-                        "borderWidth": 2
+                        "borderColor": "#FFFFFF",
+                        "borderWidth": 2,
+                        "hoverOffset": 4
                     }
                 ],
-                "chart_type": "pie",
+                "chart_type": "doughnut",
                 "title": "Distribución de Estados de Pedidos",
-                "description": "Porcentaje de pedidos por estado en el período",
+                "description": "Análisis del flujo operativo y eficiencia de entrega",
                 "additional_data": {
-                    "total_pedidos": 14,
-                    "porcentajes": [57.1, 21.4, 14.3, 7.1],
-                    "valores_monetarios": [425.20, 68.40, 25.90, 6.50]
+                    "porcentajes": [28.6, 21.4, 14.3, 14.3, 14.3, 7.1],
+                    "estados_originales": [
+                        "pendiente",
+                        "confirmado", 
+                        "cancelado",
+                        "en_camino",
+                        "preparando",
+                        "entregado"
+                    ],
+                    "total_pedidos": 14
+                },
+                "chart_config": {
+                    "cutout": "60%",
+                    "plugins": {
+                        "legend": {
+                            "position": "right",
+                            "labels": {
+                                "usePointStyle": True
+                            }
+                        },
+                        "tooltip": {
+                            "callbacks": {
+                                "label": "Mostrar cantidad y porcentaje"
+                            }
+                        }
+                    }
                 }
             },
             
