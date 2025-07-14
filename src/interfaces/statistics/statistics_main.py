@@ -53,12 +53,12 @@ class EstadisticasVentas(ctk.CTkFrame):
             
             # Componente de grid de KPIs
             self.kpi_grid = KPIGrid(self)
-            self.kpi_grid.pack(fill="x", pady=(0, 30))
+            self.kpi_grid.pack(fill="x", pady=(0, 20))
             
-            # NUEVO: Componente de gráficos estadísticos
-            from .components.charts_manager import ChartsManager
-            self.charts_manager = ChartsManager(self)
-            self.charts_manager.pack(fill="both", expand=True)
+            # NUEVO: Manager dual con paneles de análisis y reportes
+            from .components.dual_panel_manager import DualPanelManager
+            self.dual_panel_manager = DualPanelManager(self)
+            self.dual_panel_manager.pack(fill="both", expand=True)
             
         except Exception as e:
             print(f"Error al configurar la interfaz: {str(e)}")
@@ -97,8 +97,8 @@ class EstadisticasVentas(ctk.CTkFrame):
             self.cargar_kpis(fecha_inicio, fecha_fin)
             
             # Actualizar gráficos si existe el componente
-            if hasattr(self, 'charts_manager'):
-                self.charts_manager.update_period(fecha_inicio, fecha_fin)
+            if hasattr(self, 'dual_panel_manager'):
+                self.dual_panel_manager.update_period(fecha_inicio, fecha_fin)
             
         except Exception as e:
             print(f"Error al actualizar datos: {str(e)}")
