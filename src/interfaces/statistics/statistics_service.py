@@ -169,7 +169,15 @@ class StatisticsService:
                         'title': chart_data.get('title', ''),
                         'description': chart_data.get('description', ''),
                         'chart_config': chart_data.get('chart_config', {}),
-                        'additional_data': chart_data.get('additional_data', {})
+                        'additional_data': chart_data.get('additional_data', {}),
+                        # Agregar metadatos para identificar que vienen de la API real
+                        'metadata': api_data.get('metadata', {}),
+                        'source': 'api_real',
+                        'api_response': {
+                            'tipo': api_data.get('tipo'),
+                            'periodo': api_data.get('periodo'),
+                            'mensaje': api_data.get('mensaje')
+                        }
                     }
                     
                     # Procesar datasets para asegurar compatibilidad

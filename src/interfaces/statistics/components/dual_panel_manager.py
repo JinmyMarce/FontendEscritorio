@@ -78,6 +78,10 @@ class DualPanelManager(ctk.CTkFrame):
         self.current_period = (fecha_inicio, fecha_fin)
         print(f"📊 Actualizando análisis dual para período: {fecha_inicio} a {fecha_fin}")
         
+        # ¡IMPORTANTE! Limpiar caché de datos para forzar recarga desde la API
+        self.charts_data.clear()
+        print(f"🧹 Caché de gráficos limpiado - se recargarán desde la API")
+        
         # Mostrar estado de carga
         self.analysis_panel.set_loading_state(True)
         

@@ -11,45 +11,57 @@ class FallbackDataProvider:
     def get_kpi_data() -> Dict[str, Any]:
         """Retorna datos de fallback para KPIs"""
         return {
-            'total_ventas': {
-                'valor': 526.00,
-                'formato': 'currency',
-                'crecimiento': {
-                    'porcentaje': 100.0,
-                    'tendencia': 'positivo',
-                    'valor_anterior': 0,
-                    'diferencia_absoluta': 526.00
+            'success': True,
+            'source': 'fallback',
+            'data': {
+                'total_ventas': {
+                    'valor': 526.00,
+                    'formato': 'currency',
+                    'crecimiento': {
+                        'porcentaje': 100.0,
+                        'tendencia': 'positivo',
+                        'valor_anterior': 0,
+                        'diferencia_absoluta': 526.00
+                    }
+                },
+                'total_pedidos': {
+                    'valor': 14,
+                    'formato': 'number',
+                    'crecimiento': {
+                        'porcentaje': 600.0,
+                        'tendencia': 'positivo',
+                        'valor_anterior': 0,
+                        'diferencia_absoluta': 14
+                    }
+                },
+                'ticket_promedio': {
+                    'valor': 37.57,
+                    'formato': 'currency',
+                    'crecimiento': {
+                        'porcentaje': 292.7,
+                        'tendencia': 'positivo',
+                        'valor_anterior': 0,
+                        'diferencia_absoluta': 37.57
+                    }
+                },
+                'conversion_rate': {
+                    'valor': 11.1,
+                    'formato': 'percentage',
+                    'contexto': {
+                        'carritos_creados': 9,
+                        'pedidos_completados': 1,
+                        'descripcion': 'De 9 carritos, 1 se convirtieron en pedidos'
+                    }
                 }
             },
-            'total_pedidos': {
-                'valor': 14,
-                'formato': 'number',
-                'crecimiento': {
-                    'porcentaje': 600.0,
-                    'tendencia': 'positivo',
-                    'valor_anterior': 0,
-                    'diferencia_absoluta': 14
+            'periodo': {
+                'actual': {
+                    'fecha_inicio': '2025-07-01',
+                    'fecha_fin': '2025-07-31',
+                    'dias': 31
                 }
             },
-            'ticket_promedio': {
-                'valor': 37.57,
-                'formato': 'currency',
-                'crecimiento': {
-                    'porcentaje': 292.7,
-                    'tendencia': 'positivo',
-                    'valor_anterior': 0,
-                    'diferencia_absoluta': 37.57
-                }
-            },
-            'conversion_rate': {
-                'valor': 11.1,
-                'formato': 'percentage',
-                'contexto': {
-                    'carritos_creados': 9,
-                    'pedidos_completados': 1,
-                    'descripcion': 'De 9 carritos, 1 se convirtieron en pedidos'
-                }
-            }
+            'mensaje': 'Datos de fallback cargados (Sin conexión a API)'
         }
     
     @staticmethod
@@ -98,8 +110,9 @@ class FallbackDataProvider:
                     }
                 ],
                 "chart_type": "line_dual_axis",
-                "title": "Evolución de Ventas Diarias",
+                "title": "Evolución de Ventas Diarias (Datos de Prueba)",
                 "description": "Análisis de ingresos y volumen de transacciones por día",
+                "source": "fallback",
                 "chart_config": {
                     "scales": {
                         "y": {"title": "Ingresos ($)", "position": "left"},
@@ -126,8 +139,9 @@ class FallbackDataProvider:
                     }
                 ],
                 "chart_type": "area",
-                "title": "Evolución de Ventas Mensuales",
+                "title": "Evolución de Ventas Mensuales (Datos de Prueba)",
                 "description": "Análisis de tendencias y estacionalidad de ingresos",
+                "source": "fallback",
                 "additional_data": {
                     "transacciones_por_mes": [8],
                     "dias_con_ventas": [5],
@@ -185,8 +199,9 @@ class FallbackDataProvider:
                     }
                 ],
                 "chart_type": "horizontal_bar",
-                "title": "Top 10 Productos por Ingresos",
+                "title": "Top 10 Productos por Ingresos (Datos de Prueba)",
                 "description": "Ranking de productos más rentables del período",
+                "source": "fallback",
                 "additional_data": {
                     "unidades_vendidas": [8, 7, 11],
                     "pedidos_incluidos": [6, 6, 9],
@@ -235,8 +250,9 @@ class FallbackDataProvider:
                     }
                 ],
                 "chart_type": "doughnut",
-                "title": "Distribución de Estados de Pedidos",
+                "title": "Distribución de Estados de Pedidos (Datos de Prueba)",
                 "description": "Análisis del flujo operativo y eficiencia de entrega",
+                "source": "fallback",
                 "additional_data": {
                     "porcentajes": [28.6, 21.4, 14.3, 14.3, 14.3, 7.1],
                     "estados_originales": [
