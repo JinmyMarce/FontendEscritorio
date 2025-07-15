@@ -265,14 +265,22 @@ class DashboardApp(ctk.CTkFrame):
     def mostrar_pedidos(self):
         try:
             self.clear_content()
-            self.current_module = GestionPedidos(self.content)
+            self.current_module = GestionPedidos(self.content, dashboard=self)
         except Exception as e:
             messagebox.showerror("Error", f"Error al mostrar pedidos: {str(e)}")
+    
+    def mostrar_pedidos_cliente(self, cliente):
+        """Mostrar pedidos filtrados por cliente específico"""
+        try:
+            self.clear_content()
+            self.current_module = GestionPedidos(self.content, cliente_filtro=cliente, dashboard=self)
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al mostrar pedidos del cliente: {str(e)}")
             
     def mostrar_clientes(self):
         try:
             self.clear_content()
-            self.current_module = GestionClientes(self.content)
+            self.current_module = GestionClientes(self.content, dashboard=self)
         except Exception as e:
             messagebox.showerror("Error", f"Error al mostrar clientes: {str(e)}")
             

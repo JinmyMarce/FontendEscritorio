@@ -8,13 +8,16 @@ from datetime import datetime
 from src.shared.image_handler import ImageHandler
 
 class GestionClientes(ctk.CTkFrame):
-    def __init__(self, parent):
+    def __init__(self, parent, dashboard=None):
         try:
             super().__init__(parent)
             self.pack(fill="both", expand=True, padx=20, pady=20)
             
             # Configurar tema
             self.configure(fg_color="#F5F5F5")
+            
+            # Referencia al dashboard para navegación
+            self.dashboard = dashboard
             
             # Inicializar manejador de imágenes
             self.image_handler = ImageHandler()
@@ -1305,6 +1308,25 @@ class GestionClientes(ctk.CTkFrame):
             
         except Exception as e:
             messagebox.showerror("Error", f"Error al mostrar historial de pedidos: {str(e)}")
+    
+    def ver_historial_pedidos_cliente(self, cliente):
+        """Navegar a la gestión de pedidos filtrada por cliente"""
+        try:
+            if self.dashboard:
+                # Cerrar cualquier diálogo abierto
+                for child in self.winfo_children():
+                    if isinstance(child, ctk.CTkToplevel):
+                        child.destroy()
+                
+                # Navegar a pedidos con filtro de cliente
+                self.dashboard.mostrar_pedidos_cliente(cliente)
+            else:
+                messagebox.showwarning(
+                    "Funcionalidad no disponible",
+                    "No se puede navegar al historial de pedidos desde este contexto."
+                )
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al abrir historial de pedidos: {str(e)}")
 
 class ClienteDialog:
     def __init__(self, parent, title, cliente=None):
@@ -1562,6 +1584,15 @@ class DetallesClienteDialog:
             
         except Exception as e:
             messagebox.showerror("Error", f"Error al resetear contraseña: {str(e)}")
+    
+    def ver_historial_pedidos_cliente_desde_dialog(self, cliente):
+        """Ver historial de pedidos del cliente desde el diálogo de detalles"""
+        try:
+            # Cerrar este diálogo y llamar al método del padre
+            self.safe_close()
+            self.parent.ver_historial_pedidos_cliente(cliente)
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al abrir historial de pedidos: {str(e)}")
 
 # --- CLASES DE DIÁLOGO ---
 class DetallesClienteCompletoDialog:
@@ -1571,7 +1602,7 @@ class DetallesClienteCompletoDialog:
         self.dialog = None
         self.closed = False
         self.cliente = cliente
-        self.parent = parent
+        self.parent = parent  # Este es el objeto GestionClientes
         try:
             # Crear ventana de diálogo
             self.dialog = ctk.CTkToplevel(parent)
@@ -1800,7 +1831,7 @@ class DetallesClienteCompletoDialog:
             buttons_frame = ctk.CTkFrame(button_container, fg_color="transparent")
             buttons_frame.pack(fill="x", padx=15, pady=(0, 15))
             
-            # Botón Ver Historial de Pedidos (sin funcionalidad)
+            # Botón Ver Historial de Pedidos
             historial_btn = ctk.CTkButton(
                 buttons_frame,
                 text="Ver Historial de Pedidos",
@@ -1808,7 +1839,8 @@ class DetallesClienteCompletoDialog:
                 fg_color="#1976D2",
                 hover_color="#1565C0",
                 height=35,
-                state="normal"
+                state="normal",
+                command=lambda: self.ver_historial_pedidos_cliente_desde_dialog(cliente)
             )
             historial_btn.pack(side="left", fill="x", expand=True, padx=(0, 5))
             
@@ -1887,7 +1919,7 @@ class DetallesClienteCompletoDialog:
     def cambiar_estado_completo(self):
         """Cambiar estado del cliente con opciones completas"""
         try:
-            # Cerrar este diálogo y llamar al método del padre
+                       # Cerrar este diálogo y llamar al método del padre
             self.safe_close()
             self.parent.cambiar_estado_desde_detalles(self.cliente, None)
         except Exception as e:
@@ -1901,11 +1933,12 @@ class DetallesClienteCompletoDialog:
             self.parent.resetear_password_desde_detalles(self.cliente, None)
         except Exception as e:
             messagebox.showerror("Error", f"Error al resetear contraseña: {str(e)}")
-
-if __name__ == "__main__":
-    try:
-        root = ctk.CTk()
-        app = GestionClientes(root)
-        root.mainloop()
-    except Exception as e:
-        messagebox.showerror("Error", f"Error en la aplicación: {str(e)}")
+    
+    def ver_historial_pedidos_cliente_desde_dialog(self, cliente):
+        """Ver historial de pedidos del cliente desde el diálogo de detalles"""
+        try:
+            # Cerrar este diálogo y llamar al método del padre
+            self.safe_close()
+            self.parent.ver_historial_pedidos_cliente(cliente)
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al abrir historial de pedidos: {str(e)}")

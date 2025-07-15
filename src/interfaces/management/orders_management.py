@@ -1,7 +1,20 @@
 import customtkinter as ctk
 import tkinter.messagebox as messagebox
+import customtkinter as ctk
+import tkinter
+from tkinter import messagebox
 from tkinter import ttk
-from src.core.config import ORDERS_ENDPOINTS, UI_CONFIG
+import inspect
+import json
+import os
+from src.core.config import ORDERS_ENDPOINTS, SHIPPING_ENDPOINTS, UI_CONFIG
+from src.core.status_config import (
+    EstadosPedido, EstadosPago, EstadosEnvio,
+    FlujoEstados, MensajesEstado, TransicionesEstado,
+    FiltrosUI, EstadosDeprecados,
+    obtener_color_estado, obtener_label_estado,
+    sincronizar_estado_envio
+)
 from src.shared.utils import APIHandler, UIHelper, SessionManager, DataValidator, DateTimeHelper
 import json
 import os
@@ -50,12 +63,51 @@ def obtener_pedidos():
         messagebox.showerror("Error", f"Error al obtener pedidos: {str(e)}")
     return []
 
+def obtener_pedidos_por_cliente(cliente_id):
+    """
+    Obtiene los pedidos de un cliente específico desde la API de admin.
+    Devuelve una lista vacía si hay problemas.
+    """
+    try:
+        # Construir URL para pedidos por cliente usando la configuración
+        url = ORDERS_ENDPOINTS['by_client'].format(client_id=cliente_id)
+        
+        token = SessionManager.get_token()
+        headers = {'Authorization': f'Bearer {token}'} if token else {}
+        response = APIHandler.make_request('get', url, headers=headers)
+        
+        if response.get('status_code') == 200:
+            data = response.get('data', [])
+            if isinstance(data, dict) and 'orders' in data:
+                return data['orders']
+            elif isinstance(data, list):
+                return data
+            else:
+                message = data if isinstance(data, str) else str(data)
+                messagebox.showerror("Error", f"Respuesta inesperada de la API de pedidos por cliente:\n{message}")
+                return []
+        else:
+            message = response.get('data') or response.get('message') or str(response)
+            messagebox.showerror("Error", f"No se pudo obtener pedidos del cliente:\n{message}")
+            return []
+    except Exception as e:
+        messagebox.showerror("Error", f"Error al obtener pedidos del cliente: {str(e)}")
+    return []
+
 def actualizar_estado(pedido_id, nuevo_estado, return_error=False):
     """
-    Actualiza el estado de un pedido mediante la API y maneja errores de forma robusta y amigable.
+    Actualiza el estado de un pedido mediante la API con validaciones mejoradas.
+    Utiliza la configuración de estados estandarizados.
     Devuelve una tupla (exito, mensaje_error) si return_error=True.
     """
     try:
+        # Validar que el nuevo estado sea válido
+        if nuevo_estado not in EstadosPedido.get_all():
+            error_msg = f"Estado '{nuevo_estado}' no es válido"
+            if not return_error:
+                messagebox.showerror("Error de Validación", error_msg)
+            return (False, error_msg) if return_error else False
+        
         # --- MODO LOCAL ---
         frame = None
         import inspect
@@ -70,7 +122,8 @@ def actualizar_estado(pedido_id, nuevo_estado, return_error=False):
                 if str(pedido.get("id_pedido")) == str(pedido_id):
                     pedido["estado"] = nuevo_estado
                     if not return_error:
-                        messagebox.showinfo("Éxito", f"Estado cambiado a {nuevo_estado.upper()}")
+                        label_estado = obtener_label_estado('pedido', nuevo_estado)
+                        messagebox.showinfo("Éxito", f"Estado cambiado a {label_estado}")
                     return True if not return_error else (True, None)
             if not return_error:
                 messagebox.showerror("Error", "No se encontró el pedido localmente.")
@@ -80,8 +133,31 @@ def actualizar_estado(pedido_id, nuevo_estado, return_error=False):
         url = ORDERS_ENDPOINTS['update'].format(id=pedido_id)
         token = SessionManager.get_token()
         headers = {'Authorization': f'Bearer {token}'} if token else {}
+        
         response = APIHandler.make_request('patch', url, data={"estado": nuevo_estado}, headers=headers)
+        
         if response.get('status_code') == 200:
+            # Actualización exitosa del pedido
+            # Ahora sincronizar el estado del envío
+            estado_envio_sincronizado = sincronizar_estado_envio(nuevo_estado)
+            
+            # Intentar actualizar el estado del envío
+            exito_envio, error_envio = actualizar_estado_envio(pedido_id, estado_envio_sincronizado, return_error=True)
+            
+            if not exito_envio:
+                # Si falla la actualización del envío, mostrar advertencia pero no fallar completamente
+                print(f"Advertencia: Pedido actualizado pero envío no se pudo sincronizar: {error_envio}")
+                if not return_error:
+                    label_estado = obtener_label_estado('pedido', nuevo_estado)
+                    messagebox.showwarning("Éxito parcial", 
+                                         f"Estado del pedido actualizado a '{label_estado}' exitosamente.\n\n"
+                                         f"Advertencia: No se pudo sincronizar el estado del envío.")
+            else:
+                # Todo exitoso
+                if not return_error:
+                    label_estado = obtener_label_estado('pedido', nuevo_estado)
+                    messagebox.showinfo("Éxito", f"Estado actualizado a '{label_estado}' exitosamente")
+            
             return True if not return_error else (True, None)
         else:
             error_msg = None
@@ -97,9 +173,103 @@ def actualizar_estado(pedido_id, nuevo_estado, return_error=False):
             messagebox.showerror("Error inesperado", f"Ocurrió un error inesperado: {str(e)}")
         return (False, str(e)) if return_error else False
 
+def actualizar_estado_envio(pedido_id, nuevo_estado_envio, return_error=False):
+    """
+    Actualiza el estado del envío asociado a un pedido.
+    """
+    try:
+        # Primero, buscar el envío en los datos del pedido ya cargados
+        # para evitar llamadas innecesarias al backend
+        pedido_actual = None
+        
+        # Buscar instancia de GestionPedidos para acceder a self.pedidos
+        import inspect
+        for frame_info in inspect.stack():
+            local_self = frame_info.frame.f_locals.get('self')
+            if hasattr(local_self, 'pedidos'):
+                for pedido in local_self.pedidos:
+                    if str(pedido.get("id_pedido")) == str(pedido_id):
+                        pedido_actual = pedido
+                        break
+                break
+        
+        if pedido_actual and 'envios' in pedido_actual and pedido_actual['envios']:
+            # Usar el ID del envío que ya tenemos
+            envio = pedido_actual['envios'][0]  # Tomar el primer envío
+            envio_id = envio.get('id_envio') or envio.get('id')
+            
+            if envio_id:
+                # Actualizar directamente con el ID que ya tenemos
+                url_update = SHIPPING_ENDPOINTS['update_status'].format(id=envio_id)
+                token = SessionManager.get_token()
+                headers = {'Authorization': f'Bearer {token}'} if token else {}
+                
+                response_update = APIHandler.make_request('patch', url_update, data={"estado": nuevo_estado_envio}, headers=headers)
+                
+                if response_update.get('status_code') == 200:
+                    return True if not return_error else (True, None)
+                else:
+                    error_msg = f"No se pudo actualizar el estado del envío: {response_update.get('message', 'Error desconocido')}"
+                    if not return_error:
+                        print(f"Error: {error_msg}")
+                    return (False, error_msg) if return_error else False
+        
+        # Si no encontramos el envío en los datos locales, intentar consultar al backend
+        url_envio = SHIPPING_ENDPOINTS['by_order'].format(order_id=pedido_id)
+        token = SessionManager.get_token()
+        headers = {'Authorization': f'Bearer {token}'} if token else {}
+        
+        # Obtener información del envío
+        response_envio = APIHandler.make_request('get', url_envio, headers=headers)
+        
+        if response_envio.get('status_code') != 200:
+            error_msg = f"No se pudo obtener información del envío para el pedido {pedido_id}"
+            if not return_error:
+                print(f"Warning: {error_msg}")
+            return (False, error_msg) if return_error else False
+        
+        # Extraer el ID del envío
+        envio_data = response_envio.get('data')
+        if not envio_data:
+            error_msg = f"No se encontró envío para el pedido {pedido_id}"
+            if not return_error:
+                print(f"Warning: {error_msg}")
+            return (False, error_msg) if return_error else False
+        
+        # Determinar el ID del envío (puede estar en diferentes estructuras)
+        envio_id = None
+        if isinstance(envio_data, dict):
+            envio_id = envio_data.get('id_envio') or envio_data.get('id')
+        elif isinstance(envio_data, list) and len(envio_data) > 0:
+            envio_id = envio_data[0].get('id_envio') or envio_data[0].get('id')
+        
+        if not envio_id:
+            error_msg = f"No se pudo determinar el ID del envío para el pedido {pedido_id}"
+            if not return_error:
+                print(f"Warning: {error_msg}")
+            return (False, error_msg) if return_error else False
+        
+        # Actualizar el estado del envío
+        url_update = SHIPPING_ENDPOINTS['update_status'].format(id=envio_id)
+        response_update = APIHandler.make_request('patch', url_update, data={"estado": nuevo_estado_envio}, headers=headers)
+        
+        if response_update.get('status_code') == 200:
+            return True if not return_error else (True, None)
+        else:
+            error_msg = f"No se pudo actualizar el estado del envío: {response_update.get('message', 'Error desconocido')}"
+            if not return_error:
+                print(f"Error: {error_msg}")
+            return (False, error_msg) if return_error else False
+            
+    except Exception as e:
+        error_msg = f"Error al actualizar estado del envío: {str(e)}"
+        if not return_error:
+            print(f"Error: {error_msg}")
+        return (False, error_msg) if return_error else False
+
 # --- CLASE PRINCIPAL DE INTERFAZ ---
 class GestionPedidos(ctk.CTkFrame):
-    def __init__(self, parent):
+    def __init__(self, parent, cliente_filtro=None, dashboard=None):
         try:
             super().__init__(parent)
             self.pack(fill="both", expand=True, padx=20, pady=20)
@@ -109,6 +279,8 @@ class GestionPedidos(ctk.CTkFrame):
             
             # Inicializar lista de pedidos (se cargan desde el backend en cargar_datos)
             self.pedidos = []
+            self.cliente_filtro = cliente_filtro  # Cliente específico para filtrar
+            self.dashboard = dashboard  # Referencia al dashboard para navegación
             
             # Frame superior
             top_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -131,12 +303,30 @@ class GestionPedidos(ctk.CTkFrame):
             except:
                 pass
                 
+            # Título dinámico basado en si hay filtro de cliente
+            titulo_texto = "Gestión de Pedidos"
+            if self.cliente_filtro:
+                titulo_texto += f" - {self.cliente_filtro['nombre']} {self.cliente_filtro['apellidos']}"
+            
             ctk.CTkLabel(
                 title_frame,
-                text="Gestión de Pedidos",
+                text=titulo_texto,
                 font=("Quicksand", 24, "bold"),
                 text_color="#2E6B5C"
             ).pack(side="left")
+            
+            # Botón Volver si hay filtro de cliente
+            if self.cliente_filtro:
+                volver_btn = ctk.CTkButton(
+                    top_frame,
+                    text="← Volver a Clientes",
+                    font=("Quicksand", 12, "bold"),
+                    fg_color="#757575",
+                    hover_color="#616161",
+                    height=35,
+                    command=self.volver_a_clientes
+                )
+                volver_btn.pack(side="right")
             
             # Frame para búsqueda y filtros
             search_frame = ctk.CTkFrame(self, fg_color="#FFFFFF", corner_radius=10)
@@ -181,7 +371,7 @@ class GestionPedidos(ctk.CTkFrame):
             self.estado_var.trace("w", self.filtrar_tabla)
             estado_menu = ctk.CTkOptionMenu(
                 search_frame,
-                values=["Todos", "pendiente", "confirmado", "preparando", "enviado", "entregado", "cancelado", "abandonado"],
+                values=FiltrosUI.OPCIONES_FILTRO_PEDIDOS,
                 variable=self.estado_var,
                 width=120,
                 fg_color="#2E6B5C",
@@ -281,7 +471,7 @@ class GestionPedidos(ctk.CTkFrame):
             # Bind tecla Delete
             self.tabla.bind("<Delete>", self.cancelar_pedido)
             
-            self.modo_local = True  # Cambia a False cuando quieras usar el backend real
+            self.modo_local = False  # Cambia a True para usar datos locales de prueba
             
         except Exception as e:
             messagebox.showerror("Error", f"Error al inicializar: {str(e)}")
@@ -290,8 +480,12 @@ class GestionPedidos(ctk.CTkFrame):
         
     def cargar_datos(self):
         try:
-            # Obtener datos en vivo desde el backend
-            self.pedidos = obtener_pedidos()
+            # Obtener datos según si hay filtro de cliente o no
+            if self.cliente_filtro:
+                self.pedidos = obtener_pedidos_por_cliente(self.cliente_filtro['id_usuario'])
+            else:
+                self.pedidos = obtener_pedidos()
+            
             # Limpiar tabla
             for item in self.tabla.get_children():
                 self.tabla.delete(item)
@@ -326,7 +520,8 @@ class GestionPedidos(ctk.CTkFrame):
                     apellidos = pedido["usuario"].get("apellidos", "")
                     cliente = f"{nombre} {apellidos}".strip()
                 # Configurar tags para el estado
-                tags = (pedido["estado"].lower().replace(" ", "_"),)
+                estado_migrado = EstadosDeprecados.migrar_estado(pedido["estado"])
+                tags = (estado_migrado.replace(" ", "_"),)
                 self.tabla.insert(
                     "",
                     "end",
@@ -336,16 +531,15 @@ class GestionPedidos(ctk.CTkFrame):
                         productos_str,
                         cantidades_str,
                         f"S/. {pedido['monto_total']:.2f}",
-                        pedido["estado"]
+                        obtener_label_estado('pedido', estado_migrado)
                     ),
                     tags=tags
                 )
-            # Configurar colores de estado
-            self.tabla.tag_configure("pendiente", foreground="#FFA000")
-            self.tabla.tag_configure("en_proceso", foreground="#1976D2")
-            self.tabla.tag_configure("enviado", foreground="#7B1FA2")
-            self.tabla.tag_configure("entregado", foreground="#2E7D32")
-            self.tabla.tag_configure("cancelado", foreground="#C62828")
+            
+            # Configurar colores de estado usando la configuración estandarizada
+            for estado in EstadosPedido.get_all():
+                color = obtener_color_estado('pedido', estado)
+                self.tabla.tag_configure(estado, foreground=color)
         except Exception as e:
             messagebox.showerror("Error", f"Error al cargar datos: {str(e)}")
             
@@ -380,33 +574,44 @@ class GestionPedidos(ctk.CTkFrame):
                     cantidades.append(str(cantidad))
                 productos_str = ", ".join(productos)
                 cantidades_str = ", ".join(cantidades)
+                
+                # Construir nombre del cliente
+                cliente = ""
+                if "usuario" in pedido:
+                    nombre = pedido["usuario"].get("nombre", "")
+                    apellidos = pedido["usuario"].get("apellidos", "")
+                    cliente = f"{nombre} {apellidos}".strip()
+                
                 # Aplicar filtros
-                if estado != "Todos" and pedido["estado"] != estado:
+                estado_migrado = EstadosDeprecados.migrar_estado(pedido["estado"])
+                if estado != "Todos" and estado_migrado != estado:
                     continue
                     
                 valores_busqueda = [
                     pedido.get("id_pedido", ""),
-                    pedido.get("cliente", ""),
+                    cliente,
                     productos_str,
                     cantidades_str,
                     f"S/. {pedido['monto_total']:.2f}",
-                    pedido["estado"]
+                    obtener_label_estado('pedido', estado_migrado)
                 ]
                 if busqueda and not any(busqueda in str(valor).lower() for valor in valores_busqueda):
                     continue
+                
                 # Configurar tags para el estado
-                tags = (pedido["estado"].lower().replace(" ", "_"),)
+                tags = (estado_migrado.replace(" ", "_"),)
                 
                 # Insertar fila
                 self.tabla.insert(
                     "",
                     "end",
                     values=(
-                        pedido["cliente"],
+                        pedido.get("id_pedido", ""),
+                        cliente,
                         productos_str,
                         cantidades_str,
                         f"S/. {pedido['monto_total']:.2f}",
-                        pedido["estado"]
+                        obtener_label_estado('pedido', estado_migrado)
                     ),
                     tags=tags
                 )
@@ -442,57 +647,135 @@ class GestionPedidos(ctk.CTkFrame):
             if not seleccion:
                 messagebox.showwarning("Advertencia", "Por favor seleccione un pedido")
                 return
+            
             item = self.tabla.item(seleccion[0])
             pedido_id = item["values"][0]
             pedido = next((p for p in self.pedidos if str(p.get("id_pedido", "")) == str(pedido_id)), None)
+            
             if not pedido:
                 messagebox.showerror("Error", "No se pudo encontrar el pedido seleccionado.")
                 return
-            estado_actual = pedido["estado"].lower()
-            if estado_actual in ["completado", "cancelado", "rechazado"]:
-                messagebox.showinfo("Información", f"El pedido ya está en estado '{pedido['estado']}'.")
+            
+            # Migrar estado actual si es necesario
+            estado_actual = EstadosDeprecados.migrar_estado(pedido["estado"])
+            
+            # Verificar si el pedido está en estado final
+            if estado_actual in [EstadosPedido.ENTREGADO, EstadosPedido.CANCELADO]:
+                messagebox.showinfo("Información", f"El pedido ya está en estado final: '{obtener_label_estado('pedido', estado_actual)}'.")
                 return
+            
+            # Obtener estados válidos para la transición
+            estados_siguientes = TransicionesEstado.get_estados_siguientes(estado_actual)
+            if not estados_siguientes:
+                messagebox.showinfo("Información", f"No hay transiciones válidas desde el estado '{obtener_label_estado('pedido', estado_actual)}'.")
+                return
+            
             # Crear diálogo
             dialog = ctk.CTkToplevel(self)
-            dialog.title("Actualizar Estado")
-            dialog.geometry("300x180")
+            dialog.title("Actualizar Estado del Pedido")
+            dialog.geometry("400x250")
             dialog.grab_set()
+            
             # Centrar el diálogo en la pantalla
             dialog.update_idletasks()
             w = dialog.winfo_width()
             h = dialog.winfo_height()
             x = (dialog.winfo_screenwidth() // 2) - (w // 2)
             y = (dialog.winfo_screenheight() // 2) - (h // 2)
-            dialog.geometry(f"300x180+{x}+{y}")
-            ctk.CTkLabel(dialog, text="Selecciona nuevo estado:", font=("Quicksand", 12)).pack(pady=15)
-            estado_var = ctk.StringVar(value="pendiente")
-            combo = ctk.CTkOptionMenu(dialog, variable=estado_var, values=['pendiente', 'cancelado', 'completado'])
+            dialog.geometry(f"400x250+{x}+{y}")
+            
+            # Información del pedido
+            ctk.CTkLabel(
+                dialog, 
+                text=f"Pedido #{pedido_id}", 
+                font=("Quicksand", 16, "bold"),
+                text_color="#2E6B5C"
+            ).pack(pady=10)
+            
+            ctk.CTkLabel(
+                dialog, 
+                text=f"Estado actual: {obtener_label_estado('pedido', estado_actual)}", 
+                font=("Quicksand", 12)
+            ).pack(pady=5)
+            
+            ctk.CTkLabel(
+                dialog, 
+                text="Selecciona nuevo estado:", 
+                font=("Quicksand", 12, "bold")
+            ).pack(pady=(15, 5))
+            
+            # Crear opciones con labels legibles
+            opciones_labels = [obtener_label_estado('pedido', estado) for estado in estados_siguientes]
+            estado_var = ctk.StringVar(value=opciones_labels[0] if opciones_labels else "")
+            
+            combo = ctk.CTkOptionMenu(
+                dialog, 
+                variable=estado_var, 
+                values=opciones_labels,
+                width=250
+            )
             combo.pack(pady=5)
+            
             def confirmar():
-                opcion = estado_var.get()
-                if not opcion:
+                opcion_label = estado_var.get()
+                if not opcion_label:
                     messagebox.showwarning("Advertencia", "Selecciona un estado válido para actualizar.", parent=dialog)
                     return
-                respuesta = messagebox.askyesno(
-                    "Confirmar",
-                    f"¿Deseas cambiar el estado del pedido #{pedido_id} a '{opcion.upper()}?", parent=dialog
-                )
+                
+                # Encontrar el estado correspondiente al label seleccionado
+                estado_seleccionado = None
+                for estado in estados_siguientes:
+                    if obtener_label_estado('pedido', estado) == opcion_label:
+                        estado_seleccionado = estado
+                        break
+                
+                if not estado_seleccionado:
+                    messagebox.showerror("Error", "Estado seleccionado no válido.", parent=dialog)
+                    return
+                
+                # Mostrar mensaje específico según el flujo
+                mensaje_confirmacion = f"¿Deseas cambiar el estado del pedido #{pedido_id} a '{opcion_label}'?"
+                mensaje_usuario = MensajesEstado.get_mensaje(estado_seleccionado)
+                if mensaje_usuario:
+                    mensaje_confirmacion += f"\n\nMensaje para el usuario: {mensaje_usuario}"
+                
+                respuesta = messagebox.askyesno("Confirmar Cambio de Estado", mensaje_confirmacion, parent=dialog)
                 if not respuesta:
                     return
-                exito, error_msg = actualizar_estado(pedido_id, opcion, return_error=True)
+                
+                exito, error_msg = actualizar_estado(pedido_id, estado_seleccionado, return_error=True)
                 if exito:
                     self.cargar_datos()
-                    messagebox.showinfo("Éxito", f"Estado cambiado a {opcion.upper()}", parent=dialog)
+                    messagebox.showinfo("Éxito", f"Estado cambiado a '{opcion_label}' exitosamente", parent=dialog)
                     dialog.destroy()
                 else:
                     messagebox.showerror("Error", error_msg or "No se pudo actualizar el estado del pedido.", parent=dialog)
-            ctk.CTkButton(dialog, text="Actualizar", command=confirmar, fg_color="#FFA000", hover_color="#F57C00").pack(pady=10)
-            ctk.CTkButton(dialog, text="Cancelar", command=dialog.destroy, fg_color="#E64A19", hover_color="#BF360C").pack(pady=2)
+            
+            # Botones
+            button_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+            button_frame.pack(pady=20)
+            
+            ctk.CTkButton(
+                button_frame, 
+                text="Actualizar Estado", 
+                command=confirmar, 
+                fg_color="#2E6B5C", 
+                hover_color="#1D4A3C",
+                width=150
+            ).pack(side="left", padx=5)
+            
+            ctk.CTkButton(
+                button_frame, 
+                text="Cancelar", 
+                command=dialog.destroy, 
+                fg_color="#E64A19", 
+                hover_color="#BF360C",
+                width=100
+            ).pack(side="left", padx=5)
 
         except Exception as e:
             messagebox.showerror("Error", f"Error al mostrar diálogo: {str(e)}")
 
-            
     def cancelar_pedido(self, event=None):
         try:
             # Obtener selección
@@ -504,16 +787,24 @@ class GestionPedidos(ctk.CTkFrame):
             # Obtener pedido seleccionado
             item = self.tabla.item(seleccion[0])
             pedido_id = item["values"][0]
-            pedido = next((p for p in self.pedidos if p["id_pedido"] == pedido_id), None)
+            pedido = next((p for p in self.pedidos if str(p.get("id_pedido", "")) == str(pedido_id)), None)
             
             if pedido:
+                # Verificar si el pedido puede ser cancelado
+                estado_actual = EstadosDeprecados.migrar_estado(pedido["estado"])
+                if estado_actual in [EstadosPedido.ENTREGADO, EstadosPedido.CANCELADO]:
+                    messagebox.showinfo("Información", f"El pedido ya está en estado '{obtener_label_estado('pedido', estado_actual)}' y no puede ser cancelado.")
+                    return
+                
                 # Confirmar cancelación
-                if messagebox.askyesno("Confirmar", f"¿Está seguro de cancelar el pedido #{pedido_id}?"):
-                    # Cancelar pedido
-                    pedido["estado"] = "Cancelado"
-                    self.cargar_datos()
-                    self.guardar_datos()
-                    messagebox.showinfo("Éxito", "Pedido cancelado correctamente")
+                if messagebox.askyesno("Confirmar Cancelación", f"¿Está seguro de cancelar el pedido #{pedido_id}?\n\nEsta acción no se puede deshacer."):
+                    # Cancelar pedido usando el estado estandarizado
+                    exito, error_msg = actualizar_estado(pedido_id, EstadosPedido.CANCELADO, return_error=True)
+                    if exito:
+                        self.cargar_datos()
+                        messagebox.showinfo("Éxito", "Pedido cancelado correctamente")
+                    else:
+                        messagebox.showerror("Error", error_msg or "No se pudo cancelar el pedido")
                     
         except Exception as e:
             messagebox.showerror("Error", f"Error al cancelar pedido: {str(e)}")
@@ -533,9 +824,12 @@ class GestionPedidos(ctk.CTkFrame):
     def ver_detalles(self, event):
         try:
             # Obtener item seleccionado
+            if not self.tabla.selection():
+                return
+                
             item = self.tabla.selection()[0]
             pedido_id = self.tabla.item(item)["values"][0]
-            pedido = next((p for p in self.pedidos if p["id_pedido"] == pedido_id), None)
+            pedido = next((p for p in self.pedidos if str(p.get("id_pedido", "")) == str(pedido_id)), None)
             
             if pedido:
                 # Mostrar detalles
@@ -543,6 +837,19 @@ class GestionPedidos(ctk.CTkFrame):
                 
         except Exception as e:
             messagebox.showerror("Error", f"Error al mostrar detalles: {str(e)}")
+
+    def volver_a_clientes(self):
+        """Volver a la gestión de clientes"""
+        try:
+            if self.dashboard:
+                self.dashboard.mostrar_clientes()
+            else:
+                messagebox.showwarning(
+                    "Navegación no disponible",
+                    "No se puede volver a clientes desde este contexto."
+                )
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al volver a clientes: {str(e)}")
 
 class PedidoDialog:
     def __init__(self, parent, title):
@@ -624,6 +931,7 @@ class PedidoDialog:
                         fg_color="#F5F5F5"
                     )
                     entry.pack(pady=5)
+                    self.entries[field] = entry
             # Frame para items
             self.items_frame = ctk.CTkFrame(main_frame, fg_color="#F5F5F5")
             self.items_frame.pack(fill="x", pady=20)
@@ -1169,10 +1477,20 @@ class DetallesPedidoDialog:
                     # Valor
                     if field == "monto_total":
                         valor = f"S/. {monto_total_calculado:.2f}"
+                    elif field == "estado":
+                        # Migrar estado antiguo a nuevo y mostrar con label legible
+                        estado_actual = EstadosDeprecados.migrar_estado(pedido.get("estado", ""))
+                        valor = obtener_label_estado('pedido', estado_actual)
+                        # Cambiar color según el estado
+                        color_estado = obtener_color_estado('pedido', estado_actual)
                     elif field == "estado_pago":
                         valor = "-"
                         if 'pagos' in pedido and pedido['pagos']:
-                            valor = pedido['pagos'][0].get('estado_pago', '-')
+                            estado_pago = pedido['pagos'][0].get('estado_pago', '-')
+                            if estado_pago != '-':
+                                valor = obtener_label_estado('pago', estado_pago)
+                            else:
+                                valor = estado_pago
                     elif field == "metodo_pago":
                         valor = "-"
                         if 'pagos' in pedido and pedido['pagos']:
@@ -1207,15 +1525,28 @@ class DetallesPedidoDialog:
                         continue
                     else:
                         valor = pedido.get(field, '-')
-                    val_lbl = ctk.CTkLabel(
-                        grid_frame,
-                        text=str(valor),
-                        font=("Quicksand", 12),
-                        text_color="#424242",
-                        anchor="w",
-                        wraplength=100,
-                        justify="left"
-                    )
+                    
+                    # Crear label con color especial para estados
+                    if field == "estado":
+                        val_lbl = ctk.CTkLabel(
+                            grid_frame,
+                            text=str(valor),
+                            font=("Quicksand", 12, "bold"),
+                            text_color=color_estado,
+                            anchor="w",
+                            wraplength=100,
+                            justify="left"
+                        )
+                    else:
+                        val_lbl = ctk.CTkLabel(
+                            grid_frame,
+                            text=str(valor),
+                            font=("Quicksand", 12),
+                            text_color="#424242",
+                            anchor="w",
+                            wraplength=100,
+                            justify="left"
+                        )
                     val_lbl.grid(row=row, column=col*2+1, sticky="w", padx=(5,15), pady=(8 if row==0 else 4, 4))
             # Ajustar columnas y filas para separación y estética
             for col in range(4):

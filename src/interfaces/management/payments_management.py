@@ -3,6 +3,10 @@ import tkinter.messagebox as messagebox
 import tkinter as tk
 from tkinter import ttk
 from src.core.config import PAYMENTS_ENDPOINTS, UI_CONFIG, ORDERS_ENDPOINTS
+from src.core.status_config import (
+    EstadosPago, obtener_color_estado, obtener_label_estado,
+    EstadosDeprecados, FiltrosUI
+)
 from src.shared.utils import APIHandler, UIHelper, SessionManager, DataValidator, DateTimeHelper
 import os
 from datetime import datetime, timedelta
@@ -172,7 +176,7 @@ class GestionPagos(ctk.CTkFrame):
             self.estado_var.trace("w", self.filtrar_tabla)
             estado_menu = ctk.CTkOptionMenu(
                 search_frame,
-                values=["Todos", "pendiente", "completado", "fallido", "cancelado", "abandonado"],
+                values=FiltrosUI.OPCIONES_FILTRO_PAGOS,
                 variable=self.estado_var,
                 width=120,
                 fg_color="#2E6B5C",
@@ -343,7 +347,7 @@ class GestionPagos(ctk.CTkFrame):
                     text=str(overview.get('total_payments', 0))
                 )
                 self.stats_labels['completados'].configure(
-                    text=str(len([p for p in self.pagos if p.get('estado_pago') == 'completado']))
+                    text=str(len([p for p in self.pagos if p.get('estado_pago') == EstadosPago.COMPLETADO]))
                 )
                 self.stats_labels['pendientes'].configure(
                     text=str(len([p for p in self.pagos if p.get('estado_pago') == 'pendiente']))
@@ -405,12 +409,10 @@ class GestionPagos(ctk.CTkFrame):
                 # Vincular ID de pago con fila de tabla
                 self.tabla_pago_map[fila_id] = pago.get('id_pago')
                 
-            # Configurar colores de estado
-            self.tabla.tag_configure("pendiente", foreground="#FFA000")
-            self.tabla.tag_configure("completado", foreground="#2E7D32")
-            self.tabla.tag_configure("fallido", foreground="#C62828")
-            self.tabla.tag_configure("cancelado", foreground="#FF5722")
-            self.tabla.tag_configure("abandonado", foreground="#9E9E9E")
+            # Configurar colores de estado usando la configuración estandarizada
+            for estado in EstadosPago.get_all():
+                color = obtener_color_estado('pago', estado)
+                self.tabla.tag_configure(estado, foreground=color)
             
             # Configurar filas alternas para mejor visualización
             self.tabla.tag_configure("oddrow", background="#F8F9FA")
@@ -999,14 +1001,7 @@ class DetallesPagoCompletoDialog:
     
     def obtener_color_estado(self, estado):
         """Obtener color según el estado del pago"""
-        colors = {
-            'pendiente': '#FFA000',
-            'completado': '#2E7D32',
-            'fallido': '#C62828',
-            'cancelado': '#FF5722',
-            'abandonado': '#9E9E9E'
-        }
-        return colors.get(estado.lower(), '#666666')
+        return obtener_color_estado('pago', estado)
     
     def ver_detalles_pedido(self, pedido):
         """Mostrar detalles del pedido en un diálogo temporal"""
@@ -1178,7 +1173,7 @@ class EstadoPagoDialog:
             self.estado_var = ctk.StringVar(value=pago.get('estado_pago', 'pendiente'))
             estado_menu = ctk.CTkOptionMenu(
                 main_frame,
-                values=["pendiente", "completado", "fallido", "cancelado"],
+                values=EstadosPago.get_all(),
                 variable=self.estado_var,
                 width=300,
                 fg_color="#2E6B5C",

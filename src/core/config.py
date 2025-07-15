@@ -4,15 +4,22 @@ from dotenv import load_dotenv
 # Cargar variables de entorno
 load_dotenv()
 
+# Importar configuración de estados estandarizados
+from .status_config import (
+    EstadosPedido, EstadosPago, EstadosEnvio, 
+    FlujoEstados, MensajesEstado, TransicionesEstado,
+    FiltrosUI, EstadosDeprecados
+)
+
 # Configuración de la API
-API_BASE_URL = os.getenv('API_BASE_URL', 'https://api.fresaterra.shop/api/v1')
-# API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000/api/v1')
+# API_BASE_URL = os.getenv('API_BASE_URL', 'https://api.fresaterra.shop/api/v1')
+API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000/api/v1')
 
 # Endpoints de Autenticación
 AUTH_ENDPOINTS = {
-    'login': 'https://api.fresaterra.shop/api/v1/admin/login',  # <-- Cambiado para admin
-    'logout': 'https://api.fresaterra.shop/api/auth/logout',
-    'refresh': 'https://api.fresaterra.shop/api/auth/refresh',
+    'login': 'http://localhost:8000/api/v1/admin/login',  # <-- Cambiado para admin
+    'logout': 'http://localhost:8000/api/v1/auth/logout',
+    'refresh': 'http://localhost:8000/api/v1/auth/refresh',
 }
 
 # Endpoints de Clientes
@@ -81,13 +88,31 @@ ORDERS_ENDPOINTS = {
     'list': f"{API_BASE_URL}/admin/orders",   # GET todos los pedidos (admin)
     'detail': f"{API_BASE_URL}/admin/orders/{{id}}",  # GET detalle de pedido (admin)
     'update': f"{API_BASE_URL}/admin/orders/{{id}}/status",  # PATCH actualizar/cambiar estado (admin)
+    'by_client': f"{API_BASE_URL}/admin/orders/client/{{client_id}}",  # GET pedidos por cliente (admin)
     # Para el resto de usuarios
     'list_user': f"{API_BASE_URL}/orders",  # GET pedidos del usuario autenticado
     'create': f"{API_BASE_URL}/orders",  # POST crear pedido
     'cancel': f"{API_BASE_URL}/orders/{{id}}/cancel",  # PATCH cancelar pedido
     'payment': f"{API_BASE_URL}/orders/{{id}}/payment"  # GET pagos del pedido
 }
-# NOTA: El endpoint PATCH /api/v1/admin/orders/{id}/status permite cambiar a cualquier estado válido, incluyendo 'completado'.
+# NOTA: El endpoint PATCH /api/v1/admin/orders/{id}/status permite cambiar a cualquier estado válido, incluyendo 'entregado'.
+
+# Endpoints específicos para gestión de estados sincronizados
+STATUS_MANAGEMENT_ENDPOINTS = {
+    # Cambio de estados para administradores (sincroniza automáticamente pedido + envío)
+    'admin_update_order_status': f"{API_BASE_URL}/admin/orders/{{id}}/status",  # PATCH - Admin cambia estado del pedido
+    'admin_update_payment_status': f"{API_BASE_URL}/admin/payments/{{id}}/status",  # PATCH - Admin cambia estado del pago
+    
+    # Consulta de estados
+    'get_order_status': f"{API_BASE_URL}/orders/{{id}}/status",  # GET - Estado actual del pedido
+    'get_payment_status': f"{API_BASE_URL}/payments/order/{{order_id}}",  # GET - Estado del pago por pedido
+    'get_shipping_status': f"{API_BASE_URL}/shipments/order/{{order_id}}",  # GET - Estado del envío por pedido
+    
+    # Flujos específicos del usuario
+    'resume_payment': f"{API_BASE_URL}/orders/{{id}}/resume",  # POST - Reanudar pago de pedido pendiente
+    'cancel_order': f"{API_BASE_URL}/orders/{{id}}/cancel",  # PATCH - Usuario cancela su pedido
+    'confirm_payment': f"{API_BASE_URL}/payments/confirm",  # POST - Confirmar pago desde webhook MP
+}
 
 # Endpoints de Notificaciones
 NOTIFICATIONS_ENDPOINTS = {
@@ -246,4 +271,12 @@ STOCK_OPERATIONS_CONFIG = {
         },
         'description': 'Reducir stock'
     }
+}
+
+# Endpoints de Envíos
+SHIPPING_ENDPOINTS = {
+    'list': f"{API_BASE_URL}/admin/shipments",  # GET todos los envíos (admin)
+    'detail': f"{API_BASE_URL}/admin/shipments/{{id}}",  # GET detalle de envío (admin)
+    'update_status': f"{API_BASE_URL}/admin/shipments/{{id}}/status",  # PATCH actualizar estado del envío
+    'by_order': f"{API_BASE_URL}/admin/shipments/order/{{order_id}}",  # GET envío por pedido
 }
