@@ -113,11 +113,15 @@ class StockManagementSection(ctk.CTkFrame):
         # Campo de búsqueda junto al dropdown
         self.busqueda_entry = ctk.CTkEntry(
             filtros_frame,
-            placeholder_text="Buscar productos...",
-            font=("Quicksand", 12),
-            width=250
+            placeholder_text="Buscar...",
+            font=("Quicksand", 10),
+            width=170,
+            height=30,
+            border_width=1,
+            border_color="#E0E0E0",
+            fg_color="#F9F9F9"
         )
-        self.busqueda_entry.grid(row=0, column=2, padx=(10, 20), sticky="ew")
+        self.busqueda_entry.grid(row=0, column=2, padx=(10, 20), sticky="w")
         self.busqueda_entry.bind("<KeyRelease>", self.filtrar_productos)
 
         # Sección de estado agrupada

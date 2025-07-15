@@ -345,10 +345,13 @@ class GestionPedidos(ctk.CTkFrame):
             search_entry = ctk.CTkEntry(
                 search_frame,
                 textvariable=self.search_var,
-                width=300,
-                placeholder_text="Buscar por ID, cliente o estado...",
-                border_width=0,
-                fg_color="#F5F5F5"
+                width=180,
+                height=30,
+                placeholder_text="Buscar...",
+                border_width=1,
+                border_color="#E0E0E0",
+                fg_color="#F9F9F9",
+                font=("Quicksand", 10)
             )
             search_entry.pack(side="left", padx=5, pady=10)
             
