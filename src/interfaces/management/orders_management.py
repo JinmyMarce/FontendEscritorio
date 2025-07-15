@@ -1513,7 +1513,8 @@ class DetallesPedidoDialog:
                         )
                         val_lbl.grid(row=row, column=col*2+1, columnspan=3, sticky="we", padx=(5,15), pady=(8 if row==0 else 4, 4))
                         # FECHA DEL PEDIDO DEBAJO DE DIRECCIÓN
-                        fecha_pedido = pedido.get('fecha_creacion', '-')
+                        fecha_pedido_raw = pedido.get('fecha_creacion', '-')
+                        fecha_pedido = DateTimeHelper.format_datetime(fecha_pedido_raw) if fecha_pedido_raw != '-' else '-'
                         fecha_lbl = ctk.CTkLabel(
                             grid_frame,
                             text=f"🗓️ Fecha del pedido: {fecha_pedido}",

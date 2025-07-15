@@ -379,7 +379,7 @@ class DateTimeHelper:
     
     @staticmethod
     def format_datetime(date_string):
-        """Formatear fecha y hora desde formato ISO a formato legible"""
+        """Formatear fecha y hora desde formato ISO a formato legible con conversión de timezone"""
         try:
             if not date_string:
                 return "Sin fecha"
@@ -399,14 +399,33 @@ class DateTimeHelper:
                 
                 for fmt in formats_to_try:
                     try:
+                        from datetime import timezone, timedelta
                         date = datetime.strptime(date_string, fmt)
-                        return date.strftime('%d/%m/%Y %H:%M')
+                        
+                        # Si la fecha no tiene timezone info, asumimos que es UTC
+                        if date.tzinfo is None:
+                            date = date.replace(tzinfo=timezone.utc)
+                        
+                        # Convertir a timezone local (Colombia UTC-5)
+                        local_tz = timezone(timedelta(hours=-5))
+                        local_date = date.astimezone(local_tz)
+                        
+                        return local_date.strftime('%d/%m/%Y %H:%M')
                     except:
                         continue
             
-            # Fallback: intentar formato básico
-            date = datetime.strptime(date_string, '%Y-%m-%d %H:%M:%S')
-            return date.strftime('%d/%m/%Y %H:%M')
+            # Fallback: intentar formato básico y convertir de UTC a local
+            try:
+                from datetime import timezone, timedelta
+                date = datetime.strptime(date_string, '%Y-%m-%d %H:%M:%S')
+                # Asumir que es UTC
+                date = date.replace(tzinfo=timezone.utc)
+                # Convertir a timezone local (Colombia UTC-5)
+                local_tz = timezone(timedelta(hours=-5))
+                local_date = date.astimezone(local_tz)
+                return local_date.strftime('%d/%m/%Y %H:%M')
+            except:
+                pass
             
         except Exception as e:
             # Si no se puede parsear, devolver la fecha original
