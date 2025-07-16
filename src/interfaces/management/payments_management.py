@@ -450,7 +450,10 @@ class GestionPagos(ctk.CTkFrame):
                 cliente_nombre = f"{nombre} {apellidos}".strip()
                 if not cliente_nombre:
                     cliente_nombre = usuario_info.get('email', 'Cliente desconocido')
-                numero_pedido = pedido_info.get('numero_pedido', '') or f"PED-{pedido_info.get('id_pedido', '')}"
+                numero_pedido = (pago.get('codigo_pedido') or 
+                               pedido_info.get('codigo_pedido') or 
+                               pedido_info.get('numero_pedido', '') or 
+                               f"PED-{pedido_info.get('id_pedido', '')}")
                     
                 if busqueda and not any(
                     busqueda in str(valor).lower()
@@ -750,7 +753,7 @@ class DetallesPagoCompletoDialog:
             
             ctk.CTkLabel(
                 card_pedido,
-                text=f"#{pedido.get('id_pedido', 'N/A')}",
+                text=pedido.get('codigo_pedido', f"#{pedido.get('id_pedido', 'N/A')}"),
                 font=("Quicksand", 14, "bold"),
                 text_color="#000000"
             ).pack(pady=2)
@@ -1008,7 +1011,8 @@ class DetallesPagoCompletoDialog:
         try:
             from tkinter import messagebox
             # Por ahora, mostrar información básica del pedido
-            info = f"Pedido #{pedido.get('id_pedido', 'N/A')}\n"
+            codigo = pedido.get('codigo_pedido', f"#{pedido.get('id_pedido', 'N/A')}")
+            info = f"Pedido {codigo}\n"
             info += f"Estado: {pedido.get('estado', 'N/A')}\n"
             info += f"Fecha: {DateTimeHelper.format_datetime(pedido.get('fecha_pedido', ''))}\n"
             info += f"Total: S/ {float(pedido.get('monto_total', 0)):.2f}\n"
@@ -1077,7 +1081,9 @@ class DetallesPagoCompletoDialog:
                 from src.interfaces.management.orders_management import DetallesPedidoDialog
                 DetallesPedidoDialog(self.parent, pedido_completo)
             else:
-                messagebox.showerror("Error", f"No se encontró el pedido #{pedido_id} en la lista local.")
+                # Intentar obtener el código del pedido del contexto si está disponible
+                codigo_display = f"#{pedido_id}"
+                messagebox.showerror("Error", f"No se encontró el pedido {codigo_display} en la lista local.")
                 
         except Exception as e:
             print(f"Error al buscar pedido local: {e}")
@@ -1148,9 +1154,13 @@ class EstadoPagoDialog:
             info_frame = ctk.CTkFrame(main_frame, fg_color="#F5F5F5")
             info_frame.pack(fill="x", padx=20, pady=(0, 20))
             
+            # Obtener información del pedido
+            pedido_info = pago.get('pedido', {})
+            codigo_pedido = pago.get('codigo_pedido', pedido_info.get('codigo_pedido', f"#{pago.get('pedidos_id_pedido', 'N/A')}"))
+            
             ctk.CTkLabel(
                 info_frame,
-                text=f"Pago #{pago.get('id_pago', 'N/A')} - Pedido #{pago.get('pedidos_id_pedido', pago.get('pedido', {}).get('id_pedido', 'N/A'))}",
+                text=f"Pago #{pago.get('id_pago', 'N/A')} - Pedido {codigo_pedido}",
                 font=("Quicksand", 12, "bold"),
                 text_color="#2E6B5C"
             ).pack(pady=10)
