@@ -982,7 +982,7 @@ class ModalProducto(ctk.CTkToplevel):
         
         # Configurar ventana
         self.title(titulo)
-        self.geometry("800x900")  # Aumentado significativamente
+        self.geometry("700x650")  # Más compacto
         self.resizable(False, False)
         
         # Centrar ventana relativa al parent
@@ -1017,40 +1017,62 @@ class ModalProducto(ctk.CTkToplevel):
         # Scrollable frame para el contenido
         self.scroll_frame = ctk.CTkScrollableFrame(self, fg_color="#F8F9FA", corner_radius=10)
         self.scroll_frame.grid(row=1, column=0, padx=30, pady=(0, 10), sticky="nsew")
-        self.scroll_frame.grid_columnconfigure(0, weight=1)
+        self.scroll_frame.grid_columnconfigure(1, weight=1)  # Columna del nombre se expande
         
-        # ID (solo en edición)
+        # Frame para ID y Nombre en la misma fila (solo en edición)
         if self.es_edicion:
+            # Labels
             ctk.CTkLabel(
                 self.scroll_frame,
-                text="ID del Producto:",
+                text="ID:",
                 font=("Quicksand", 12, "bold"),
                 text_color="#2E6B5C"
-            ).grid(row=0, column=0, sticky="w", padx=20, pady=(20, 5))
+            ).grid(row=0, column=0, sticky="w", padx=(20, 10), pady=(20, 5))
             
+            ctk.CTkLabel(
+                self.scroll_frame,
+                text="Nombre del Producto: *",
+                font=("Quicksand", 12, "bold"),
+                text_color="#2E6B5C"
+            ).grid(row=0, column=1, sticky="w", padx=(10, 20), pady=(20, 5))
+            
+            # Campos
             self.id_entry = ctk.CTkEntry(
                 self.scroll_frame,
-                font=("Quicksand", 14),  # Aumentado el tamaño de fuente
+                font=("Quicksand", 12),
                 state="disabled",
-                height=40  # Aumentado la altura
+                height=35,
+                width=80  # ID más pequeño
             )
-            self.id_entry.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 20))
-        
-        # Nombre
-        ctk.CTkLabel(
-            self.scroll_frame,
-            text="Nombre del Producto: *",
-            font=("Quicksand", 12, "bold"),
-            text_color="#2E6B5C"
-        ).grid(row=2, column=0, sticky="w", padx=20, pady=(0, 5))
-        
-        self.nombre_entry = ctk.CTkEntry(
-            self.scroll_frame,
-            font=("Quicksand", 14),  # Aumentado el tamaño de fuente
-            placeholder_text="Ingrese el nombre del producto",
-            height=40  # Aumentado la altura
-        )
-        self.nombre_entry.grid(row=3, column=0, sticky="ew", padx=20, pady=(0, 20))
+            self.id_entry.grid(row=1, column=0, sticky="w", padx=(20, 10), pady=(0, 15))
+            
+            self.nombre_entry = ctk.CTkEntry(
+                self.scroll_frame,
+                font=("Quicksand", 12),
+                placeholder_text="Ingrese el nombre del producto",
+                height=35
+            )
+            self.nombre_entry.grid(row=1, column=1, sticky="ew", padx=(10, 20), pady=(0, 15))
+            
+            fila_actual = 2
+        else:
+            # Solo nombre (sin ID en creación)
+            ctk.CTkLabel(
+                self.scroll_frame,
+                text="Nombre del Producto: *",
+                font=("Quicksand", 12, "bold"),
+                text_color="#2E6B5C"
+            ).grid(row=0, column=0, columnspan=2, sticky="w", padx=20, pady=(20, 5))
+            
+            self.nombre_entry = ctk.CTkEntry(
+                self.scroll_frame,
+                font=("Quicksand", 12),
+                placeholder_text="Ingrese el nombre del producto",
+                height=35
+            )
+            self.nombre_entry.grid(row=1, column=0, columnspan=2, sticky="ew", padx=20, pady=(0, 15))
+            
+            fila_actual = 2
         
         # Descripción
         ctk.CTkLabel(
@@ -1058,18 +1080,18 @@ class ModalProducto(ctk.CTkToplevel):
             text="Descripción: *",
             font=("Quicksand", 12, "bold"),
             text_color="#2E6B5C"
-        ).grid(row=4, column=0, sticky="w", padx=20, pady=(0, 5))
+        ).grid(row=fila_actual, column=0, columnspan=2, sticky="w", padx=20, pady=(0, 5))
         
         self.descripcion_text = ctk.CTkTextbox(
             self.scroll_frame,
-            height=120,  # Aumentado la altura
-            font=("Quicksand", 14)  # Aumentado el tamaño de fuente
+            height=80,  # Más compacto
+            font=("Quicksand", 12)
         )
-        self.descripcion_text.grid(row=5, column=0, sticky="ew", padx=20, pady=(0, 20))
+        self.descripcion_text.grid(row=fila_actual+1, column=0, columnspan=2, sticky="ew", padx=20, pady=(0, 15))
         
-        # Frame para precio y peso (en la misma fila)
+        # Frame para precio y peso en la misma fila
         precio_peso_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
-        precio_peso_frame.grid(row=6, column=0, sticky="ew", padx=20, pady=(0, 20))
+        precio_peso_frame.grid(row=fila_actual+2, column=0, columnspan=2, sticky="ew", padx=20, pady=(0, 15))
         precio_peso_frame.grid_columnconfigure(0, weight=1)
         precio_peso_frame.grid_columnconfigure(1, weight=1)
         
@@ -1083,13 +1105,13 @@ class ModalProducto(ctk.CTkToplevel):
         
         self.precio_entry = ctk.CTkEntry(
             precio_peso_frame,
-            font=("Quicksand", 14),  # Aumentado el tamaño de fuente
+            font=("Quicksand", 12),
             placeholder_text="0.00",
-            height=40  # Aumentado la altura
+            height=35
         )
         self.precio_entry.grid(row=1, column=0, sticky="ew", padx=(0, 10))
         
-        # Peso
+        # Peso (con campo numérico y selector de unidad)
         ctk.CTkLabel(
             precio_peso_frame,
             text="Peso: *",
@@ -1097,17 +1119,35 @@ class ModalProducto(ctk.CTkToplevel):
             text_color="#2E6B5C"
         ).grid(row=0, column=1, sticky="w", padx=(10, 0), pady=(0, 5))
         
-        self.peso_entry = ctk.CTkEntry(
-            precio_peso_frame,
-            font=("Quicksand", 14),  # Aumentado el tamaño de fuente
-            placeholder_text="ej: 500g, 1kg",
-            height=40  # Aumentado la altura
+        # Frame para peso número + unidad
+        peso_frame = ctk.CTkFrame(precio_peso_frame, fg_color="transparent")
+        peso_frame.grid(row=1, column=1, sticky="ew", padx=(10, 0))
+        peso_frame.grid_columnconfigure(0, weight=2)
+        peso_frame.grid_columnconfigure(1, weight=1)
+        
+        self.peso_numero_entry = ctk.CTkEntry(
+            peso_frame,
+            font=("Quicksand", 12),
+            placeholder_text="500",
+            height=35
         )
-        self.peso_entry.grid(row=1, column=1, sticky="ew", padx=(10, 0))
+        self.peso_numero_entry.grid(row=0, column=0, sticky="ew", padx=(0, 5))
+        
+        self.peso_unidad_dropdown = ctk.CTkOptionMenu(
+            peso_frame,
+            values=["g", "kg", "lt"],
+            font=("Quicksand", 12),
+            fg_color="#4A934A",
+            button_color="#367832",
+            height=35,
+            width=60
+        )
+        self.peso_unidad_dropdown.grid(row=0, column=1, sticky="ew")
+        self.peso_unidad_dropdown.set("g")  # Valor por defecto
         
         # Frame para categoría y stock
         cat_stock_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
-        cat_stock_frame.grid(row=7, column=0, sticky="ew", padx=20, pady=(0, 20))
+        cat_stock_frame.grid(row=fila_actual+3, column=0, columnspan=2, sticky="ew", padx=20, pady=(0, 15))
         cat_stock_frame.grid_columnconfigure(0, weight=1)
         cat_stock_frame.grid_columnconfigure(1, weight=1)
         
@@ -1126,10 +1166,10 @@ class ModalProducto(ctk.CTkToplevel):
         self.categoria_dropdown = ctk.CTkOptionMenu(
             cat_stock_frame,
             values=categoria_valores,
-            font=("Quicksand", 14),  # Aumentado el tamaño de fuente
+            font=("Quicksand", 12),
             fg_color="#4A934A",
             button_color="#367832",
-            height=40  # Aumentado la altura
+            height=35
         )
         self.categoria_dropdown.grid(row=1, column=0, sticky="ew", padx=(0, 10))
         
@@ -1143,9 +1183,9 @@ class ModalProducto(ctk.CTkToplevel):
         
         self.stock_entry = ctk.CTkEntry(
             cat_stock_frame,
-            font=("Quicksand", 14),  # Aumentado el tamaño de fuente
+            font=("Quicksand", 12),
             placeholder_text="0",
-            height=40  # Aumentado la altura
+            height=35
         )
         self.stock_entry.grid(row=1, column=1, sticky="ew", padx=(10, 0))
         
@@ -1155,38 +1195,38 @@ class ModalProducto(ctk.CTkToplevel):
             text="Imagen del Producto:",
             font=("Quicksand", 12, "bold"),
             text_color="#2E6B5C"
-        ).grid(row=8, column=0, sticky="w", padx=20, pady=(0, 5))
+        ).grid(row=fila_actual+4, column=0, columnspan=2, sticky="w", padx=20, pady=(0, 5))
         
-        # Frame para imagen
+        # Frame para imagen más compacto
         imagen_frame = ctk.CTkFrame(self.scroll_frame, fg_color="#FFFFFF", corner_radius=10)
-        imagen_frame.grid(row=9, column=0, sticky="ew", padx=20, pady=(0, 30))  # Más espacio abajo
+        imagen_frame.grid(row=fila_actual+5, column=0, columnspan=2, sticky="ew", padx=20, pady=(0, 20))
         imagen_frame.grid_columnconfigure(0, weight=1)
         
-        # Botón para seleccionar imagen
+        # Botón para seleccionar imagen más compacto
         self.btn_seleccionar_imagen = ctk.CTkButton(
             imagen_frame,
             text="📷 Seleccionar Imagen",
             command=self.seleccionar_imagen,
-            font=("Quicksand", 14, "bold"),  # Aumentado el tamaño de fuente
+            font=("Quicksand", 12, "bold"),
             fg_color="#4A934A",
             hover_color="#367832",
-            width=250,  # Aumentado el ancho
-            height=45   # Aumentado la altura
+            width=200,
+            height=35
         )
-        self.btn_seleccionar_imagen.grid(row=0, column=0, padx=20, pady=20)
+        self.btn_seleccionar_imagen.grid(row=0, column=0, padx=15, pady=15)
         
-        # Label para preview de imagen
+        # Label para preview de imagen más compacto
         self.imagen_label = ctk.CTkLabel(
             imagen_frame,
             text="No se ha seleccionado imagen",
-            font=("Quicksand", 12),
+            font=("Quicksand", 11),
             text_color="#666666"
         )
-        self.imagen_label.grid(row=1, column=0, padx=20, pady=(0, 20))  # Más espacio abajo
+        self.imagen_label.grid(row=1, column=0, padx=15, pady=(0, 15))
         
-        # Frame de botones
+        # Frame de botones más compacto
         botones_frame = ctk.CTkFrame(self, fg_color="transparent")
-        botones_frame.grid(row=2, column=0, pady=(10, 30), sticky="ew")  # Más espacio abajo
+        botones_frame.grid(row=2, column=0, pady=(10, 20), sticky="ew")
         
         if self.es_edicion:
             # Botones para edición
@@ -1194,47 +1234,47 @@ class ModalProducto(ctk.CTkToplevel):
                 botones_frame,
                 text="💾 Actualizar",
                 command=self.actualizar_producto,
-                font=("Quicksand", 14, "bold"),  # Aumentado el tamaño de fuente
+                font=("Quicksand", 12, "bold"),
                 fg_color="#2E6B5C",
                 hover_color="#24544A",
-                width=150,  # Aumentado el ancho
-                height=45   # Aumentado la altura
-            ).pack(side="left", padx=15)
+                width=120,
+                height=35
+            ).pack(side="left", padx=10)
             
             ctk.CTkButton(
                 botones_frame,
                 text="🗑️ Eliminar",
                 command=self.eliminar_producto,
-                font=("Quicksand", 14, "bold"),  # Aumentado el tamaño de fuente
+                font=("Quicksand", 12, "bold"),
                 fg_color="#DC3545",
                 hover_color="#B02A37",
-                width=150,  # Aumentado el ancho
-                height=45   # Aumentado la altura
-            ).pack(side="left", padx=15)
+                width=120,
+                height=35
+            ).pack(side="left", padx=10)
         else:
             # Botón para crear
             ctk.CTkButton(
                 botones_frame,
                 text="💾 Crear Producto",
                 command=self.guardar_producto,
-                font=("Quicksand", 14, "bold"),  # Aumentado el tamaño de fuente
+                font=("Quicksand", 12, "bold"),
                 fg_color="#2E6B5C",
                 hover_color="#24544A",
-                width=180,  # Aumentado el ancho
-                height=45   # Aumentado la altura
-            ).pack(side="left", padx=15)
+                width=140,
+                height=35
+            ).pack(side="left", padx=10)
         
         # Botón cancelar
         ctk.CTkButton(
             botones_frame,
             text="❌ Cancelar",
             command=self.cerrar_modal,
-            font=("Quicksand", 14, "bold"),  # Aumentado el tamaño de fuente
+            font=("Quicksand", 12, "bold"),
             fg_color="#6C757D",
             hover_color="#5A6268",
-            width=150,  # Aumentado el ancho
-            height=45   # Aumentado la altura
-        ).pack(side="right", padx=15)
+            width=120,
+            height=35
+        ).pack(side="right", padx=10)
     
     def seleccionar_imagen(self):
         """Seleccionar archivo de imagen y mostrar preview"""
@@ -1291,7 +1331,12 @@ class ModalProducto(ctk.CTkToplevel):
         datos['nombre'] = self.nombre_entry.get().strip()
         datos['descripcion'] = self.descripcion_text.get("1.0", "end").strip()
         datos['precio'] = self.precio_entry.get().strip()
-        datos['peso'] = self.peso_entry.get().strip()
+        
+        # Combinar peso número y unidad
+        peso_numero = self.peso_numero_entry.get().strip()
+        peso_unidad = self.peso_unidad_dropdown.get()
+        datos['peso'] = f"{peso_numero}{peso_unidad}" if peso_numero else ""
+        
         # Obtener categoría seleccionada
         cat_nombre = self.categoria_dropdown.get()
         cat_id = None
@@ -1327,9 +1372,22 @@ class ModalProducto(ctk.CTkToplevel):
         self.precio_entry.delete(0, "end")
         self.precio_entry.insert(0, str(self.producto.get('precio', '')))
         
-        # Peso
-        self.peso_entry.delete(0, "end")
-        self.peso_entry.insert(0, self.producto.get('peso', ''))
+        # Peso (separar número y unidad)
+        peso_completo = self.producto.get('peso', '')
+        peso_numero = ""
+        peso_unidad = "g"
+        
+        if peso_completo:
+            import re
+            # Buscar números al inicio y letras al final
+            match = re.match(r'^(\d*\.?\d*)\s*([a-zA-Z]+)?', peso_completo)
+            if match:
+                peso_numero = match.group(1) or ""
+                peso_unidad = match.group(2) or "g"
+        
+        self.peso_numero_entry.delete(0, "end")
+        self.peso_numero_entry.insert(0, peso_numero)
+        self.peso_unidad_dropdown.set(peso_unidad)
         
         # Categoría
         categoria_producto = self.producto.get('categoria', {})
@@ -1367,8 +1425,16 @@ class ModalProducto(ctk.CTkToplevel):
             errores.append("El precio debe ser un número válido")
         
         # Peso
-        if not self.peso_entry.get().strip():
+        peso_numero = self.peso_numero_entry.get().strip()
+        if not peso_numero:
             errores.append("El peso es requerido")
+        else:
+            try:
+                peso_valor = float(peso_numero)
+                if peso_valor <= 0:
+                    errores.append("El peso debe ser mayor que 0")
+            except ValueError:
+                errores.append("El peso debe ser un número válido")
         
         # Categoría
         categoria_seleccionada = self.categoria_dropdown.get()
@@ -1394,11 +1460,15 @@ class ModalProducto(ctk.CTkToplevel):
         
         try:
             # Preparar datos
+            peso_numero = self.peso_numero_entry.get().strip()
+            peso_unidad = self.peso_unidad_dropdown.get()
+            peso_completo = f"{peso_numero}{peso_unidad}"
+            
             datos_producto = {
                 'nombre': self.nombre_entry.get().strip(),
                 'descripcion': self.descripcion_text.get("1.0", "end-1c").strip(),
                 'precio': self.precio_entry.get().strip(),
-                'peso': self.peso_entry.get().strip(),
+                'peso': peso_completo,
                 'categoria_id': self.obtener_categoria_id(),
                 'stock': self.stock_entry.get().strip() or '0'
             }
@@ -1422,11 +1492,15 @@ class ModalProducto(ctk.CTkToplevel):
             return
         try:
             # Preparar datos
+            peso_numero = self.peso_numero_entry.get().strip()
+            peso_unidad = self.peso_unidad_dropdown.get()
+            peso_completo = f"{peso_numero}{peso_unidad}"
+            
             datos_producto = {
                 'nombre': self.nombre_entry.get().strip(),
                 'descripcion': self.descripcion_text.get("1.0", "end-1c").strip(),
                 'precio': self.precio_entry.get().strip(),
-                'peso': self.peso_entry.get().strip(),
+                'peso': peso_completo,
                 'categoria_id': self.obtener_categoria_id(),
                 'stock': self.stock_entry.get().strip() or '0'
             }
