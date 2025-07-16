@@ -98,7 +98,8 @@ class EstadisticasVentas(ctk.CTkFrame):
             
             # Actualizar gráficos si existe el componente
             if hasattr(self, 'dual_panel_manager'):
-                self.dual_panel_manager.update_period(fecha_inicio, fecha_fin)
+                period_text = self.controls.get_selected_period_text()
+                self.dual_panel_manager.update_period(fecha_inicio, fecha_fin, period_text)
             
         except Exception as e:
             print(f"Error al actualizar datos: {str(e)}")

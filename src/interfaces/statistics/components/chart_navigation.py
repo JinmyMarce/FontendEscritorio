@@ -18,7 +18,7 @@ class ChartNavigation(ctk.CTkFrame):
         )
         
         self.on_chart_selected = on_chart_selected
-        self.current_selection = "ventas_diarias"
+        self.current_selection = "productos_vendidos"  # Cambiar default a Top productos
         self.nav_buttons = {}
         
         self.setup_ui()
@@ -32,22 +32,22 @@ class ChartNavigation(ctk.CTkFrame):
         self.nav_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.nav_frame.pack(expand=True, fill="both", padx=15, pady=10)
         
-        # Información de los tipos de gráficos
+        # Información de los tipos de gráficos (cambiado el orden)
         self.chart_types = {
+            "productos_vendidos": {
+                "title": "Top productos",
+                "icon": "🏆",
+                "color": "#F59E0B"
+            },
             "ventas_diarias": {
                 "title": "Ventas diarias",
-                "icon": "📈",
+                "icon": "�",
                 "color": "#16A34A"
             },
             "ventas_mensuales": {
                 "title": "Ventas mensuales",
                 "icon": "📊", 
                 "color": "#2563EB"
-            },
-            "productos_vendidos": {
-                "title": "Top productos",
-                "icon": "🏆",
-                "color": "#F59E0B"
             },
             "estados_pedidos": {
                 "title": "Estados de pedidos",

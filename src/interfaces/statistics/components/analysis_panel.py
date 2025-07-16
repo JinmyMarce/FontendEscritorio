@@ -23,6 +23,7 @@ class AnalysisPanel(ctk.CTkFrame):
         self.current_chart_type = "ventas_diarias"
         self.chart_data = None
         self.canvas_widget = None
+        self.current_period_text = None  # Para almacenar el texto del período actual
         
         self.setup_ui()
     
@@ -41,15 +42,6 @@ class AnalysisPanel(ctk.CTkFrame):
             anchor="w"
         )
         self.title_label.pack(side="left")
-        
-        # Estado de datos
-        self.status_label = ctk.CTkLabel(
-            self.header_frame,
-            text="✅ Datos actualizados",
-            font=("Arial", 11),
-            text_color="#16A34A"
-        )
-        self.status_label.pack(side="right")
         
         # Área del gráfico principal
         self.chart_container = ctk.CTkFrame(
@@ -142,12 +134,6 @@ class AnalysisPanel(ctk.CTkFrame):
             # Crear el gráfico
             self.create_main_chart(chart_data)
             
-            # Actualizar estado
-            self.status_label.configure(
-                text="✅ Datos actualizados",
-                text_color="#16A34A"
-            )
-            
         except Exception as e:
             print(f"Error al actualizar gráfico: {str(e)}")
             self.show_error()
@@ -163,7 +149,7 @@ class AnalysisPanel(ctk.CTkFrame):
             labels = chart_data.get('labels', [])
             datasets = chart_data.get('datasets', [])
             chart_type = chart_data.get('chart_type', 'line')
-            title = chart_data.get('title', 'Gráfico Estadístico')
+            title = self._generate_dynamic_title(chart_data, self.current_chart_type)
             description = chart_data.get('description', '')
             chart_config = chart_data.get('chart_config', {})
             
@@ -177,17 +163,19 @@ class AnalysisPanel(ctk.CTkFrame):
             fig.patch.set_facecolor('#F8FAFC')
             ax.set_facecolor('#FFFFFF')
             
-            # Crear gráfico según el tipo
-            if chart_type == "line_dual_axis":
+            # Crear gráfico según el tipo - usar current_chart_type para productos_vendidos
+            actual_chart_type = self.current_chart_type if self.current_chart_type == "productos_vendidos" else chart_type
+            
+            if actual_chart_type == "line_dual_axis":
                 self._create_dual_axis_chart(fig, ax, labels, datasets, chart_config)
-            elif chart_type == "area":
+            elif actual_chart_type == "area":
                 self._create_area_chart(ax, labels, datasets)
-            elif chart_type in ["line", "ventas_diarias", "ventas_mensuales"]:
+            elif actual_chart_type in ["line", "ventas_diarias", "ventas_mensuales"]:
                 self._create_line_chart(ax, labels, datasets)
-            elif chart_type in ["bar", "productos_vendidos"]:
+            elif actual_chart_type in ["bar", "productos_vendidos"]:
                 if datasets:
                     self._create_bar_chart(ax, labels, datasets[0])
-            elif chart_type in ["pie", "doughnut", "estados_pedidos"]:
+            elif actual_chart_type in ["pie", "doughnut", "estados_pedidos"]:
                 if datasets:
                     self._create_pie_chart(ax, labels, datasets[0])
             else:
@@ -214,19 +202,6 @@ class AnalysisPanel(ctk.CTkFrame):
                 ax.tick_params(colors='#6B7280', labelsize=10)
             
             plt.tight_layout(pad=2.0)
-            
-            # Agregar al contenedor
-            canvas = FigureCanvasTkAgg(fig, master=self.chart_container)
-            canvas.draw()
-            canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
-            
-            self.canvas_widget = canvas
-            
-            plt.close(fig)  # Cerrar para liberar memoria
-            
-        except Exception as e:
-            print(f"Error al crear gráfico principal: {str(e)}")
-            self.show_error()
             
             # Agregar al contenedor
             canvas = FigureCanvasTkAgg(fig, master=self.chart_container)
@@ -295,9 +270,9 @@ class AnalysisPanel(ctk.CTkFrame):
             ax.legend(loc='upper left', frameon=False)
     
     def _create_bar_chart(self, ax, labels, dataset):
-        """Crea un gráfico de barras"""
+        """Crea un gráfico de barras mejorado para productos"""
         data = dataset.get('data', [])
-        color = '#F59E0B'
+        background_colors = dataset.get('backgroundColor', [])
         
         if data and labels:
             # Convertir datos a números
@@ -308,17 +283,48 @@ class AnalysisPanel(ctk.CTkFrame):
                 except (ValueError, TypeError):
                     numeric_data.append(0)
             
-            bars = ax.bar(labels, numeric_data, color=color, alpha=0.8, width=0.6)
+            # Usar colores de ranking si están disponibles, sino usar degradado
+            if background_colors and len(background_colors) >= len(numeric_data):
+                colors = background_colors[:len(numeric_data)]
+            else:
+                # Colores de ranking: oro, plata, bronce, y degradado verde
+                colors = ['#FFD700', '#C0C0C0', '#CD7F32'] + ['#10B981', '#059669', '#047857'] * 10
+                colors = colors[:len(numeric_data)]
             
-            # Agregar valores en las barras
+            # Crear barras con colores individuales
+            bars = ax.bar(labels, numeric_data, color=colors, alpha=0.9, width=0.7, 
+                         edgecolor='#374151', linewidth=1)
+            
+            # Agregar valores en las barras con formato de moneda
             for bar, value in zip(bars, numeric_data):
                 if value > 0:
-                    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(numeric_data)*0.01,
-                           f'{int(value)}', ha='center', va='bottom', fontsize=10, color='#374151')
+                    # Formatear como moneda
+                    if value >= 1000:
+                        label_text = f'S/. {value/1000:.1f}k'
+                    else:
+                        label_text = f'S/. {int(value)}'
+                    
+                    ax.text(bar.get_x() + bar.get_width()/2, 
+                           bar.get_height() + max(numeric_data)*0.02,
+                           label_text, ha='center', va='bottom', 
+                           fontsize=11, fontweight='bold', color='#1F2937')
             
-            # Rotar labels si son muchos
-            if len(labels) > 5:
-                ax.set_xticklabels(labels, rotation=45, ha='right')
+            # Configurar etiquetas del eje X
+            if len(labels) > 3:
+                # Rotar y ajustar labels para productos
+                ax.set_xticklabels(labels, rotation=15, ha='right', fontsize=10)
+            else:
+                ax.set_xticklabels(labels, fontsize=11)
+            
+            # Configurar eje Y con formato de moneda
+            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'S/. {int(x)}'))
+            
+            # Agregar grid sutil
+            ax.grid(axis='y', alpha=0.3, linestyle='--')
+            ax.set_axisbelow(True)
+            
+            # Mejorar márgenes
+            ax.margins(x=0.1)
     
     def _create_pie_chart(self, ax, labels, dataset):
         """Crea un gráfico de torta"""
@@ -511,11 +517,6 @@ class AnalysisPanel(ctk.CTkFrame):
         error_label.pack(expand=True)
         
         # Actualizar estado
-        self.status_label.configure(
-            text="❌ Error al cargar",
-            text_color="#DC2626"
-        )
-    
     def show_detail_view(self):
         """Muestra la vista detallada del gráfico"""
         if self.on_detail_view and self.chart_data:
@@ -546,12 +547,33 @@ class AnalysisPanel(ctk.CTkFrame):
     def set_loading_state(self, is_loading: bool):
         """Actualiza el estado de carga"""
         if is_loading:
-            self.status_label.configure(
-                text="🔄 Cargando...",
-                text_color="#F59E0B"
-            )
+            print("🔄 Cargando datos del gráfico...")
         else:
-            self.status_label.configure(
-                text="✅ Datos actualizados", 
-                text_color="#16A34A"
-            )
+            print("✅ Datos del gráfico actualizados")
+    
+    def _generate_dynamic_title(self, chart_data: Dict[str, Any], chart_type: str) -> str:
+        """Genera un título dinámico basado en el tipo de gráfico y período"""
+        original_title = chart_data.get('title', 'Gráfico Estadístico')
+        
+        if chart_type == "productos_vendidos":
+            # Usar el período del dropdown si está disponible
+            if self.current_period_text:
+                return f"Top Productos Vendidos - {self.current_period_text}"
+            
+            # Fallback: usar período de los datos de la API
+            periodo_info = chart_data.get('periodo', {})
+            if periodo_info:
+                fecha_inicio = periodo_info.get('fecha_inicio', '')
+                fecha_fin = periodo_info.get('fecha_fin', '')
+                if fecha_inicio and fecha_fin:
+                    return f"Top Productos Vendidos ({fecha_inicio} - {fecha_fin})"
+            
+            return "Top Productos Vendidos en el período"
+        
+        # Para otros tipos de gráfico, usar el título original
+        return original_title
+    
+    def update_period_text(self, period_text: str):
+        """Actualiza el texto del período actual"""
+        self.current_period_text = period_text
+        print(f"📅 Período actualizado en AnalysisPanel: {period_text}")

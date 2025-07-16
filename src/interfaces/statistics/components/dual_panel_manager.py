@@ -73,10 +73,14 @@ class DualPanelManager(ctk.CTkFrame):
         self.reports_panel = ReportsPanel(self.panels_container)
         self.reports_panel.grid(row=0, column=1, padx=(10, 0), pady=0, sticky="nsew")
     
-    def update_period(self, fecha_inicio: str, fecha_fin: str):
+    def update_period(self, fecha_inicio: str, fecha_fin: str, period_text: str = None):
         """Actualiza el período y recarga los datos"""
         self.current_period = (fecha_inicio, fecha_fin)
         print(f"📊 Actualizando análisis dual para período: {fecha_inicio} a {fecha_fin}")
+        
+        # Actualizar el texto del período en el panel de análisis
+        if period_text and hasattr(self, 'analysis_panel'):
+            self.analysis_panel.update_period_text(period_text)
         
         # ¡IMPORTANTE! Limpiar caché de datos para forzar recarga desde la API
         self.charts_data.clear()
@@ -167,7 +171,7 @@ class DualPanelManager(ctk.CTkFrame):
     
     def preload_all_charts(self, fecha_inicio: str, fecha_fin: str):
         """Precarga todos los tipos de gráficos para mejor UX"""
-        chart_types = ["ventas_diarias", "ventas_mensuales", "productos_vendidos", "estados_pedidos"]
+        chart_types = ["productos_vendidos", "ventas_diarias", "ventas_mensuales", "estados_pedidos"]
         
         for chart_type in chart_types:
             if chart_type not in self.charts_data:

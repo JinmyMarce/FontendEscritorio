@@ -125,3 +125,7 @@ class StatisticsControls(ctk.CTkFrame):
     def set_period(self, period):
         """Establece el período seleccionado programáticamente"""
         self.periodo_var.set(period)
+    
+    def get_selected_period_text(self):
+        """Obtiene el texto del período seleccionado para mostrar en títulos"""
+        return self.periodo_var.get()

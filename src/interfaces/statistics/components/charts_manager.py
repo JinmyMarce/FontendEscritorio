@@ -71,7 +71,7 @@ class ChartsManager(ctk.CTkFrame):
         self.set_loading_status(True)
         
         # Cargar datos de todos los tipos de gráficos
-        chart_types = ["ventas_diarias", "ventas_mensuales", "productos_vendidos", "estados_pedidos"]
+        chart_types = ["productos_vendidos", "ventas_diarias", "ventas_mensuales", "estados_pedidos"]
         for chart_type in chart_types:
             self.load_chart_data(chart_type, fecha_inicio, fecha_fin)
     
