@@ -191,11 +191,7 @@ class GestionPagos(ctk.CTkFrame):
             )
             estado_menu.pack(side="left", padx=5, pady=10)
             
-            # Panel de estadísticas (ahora a la derecha)
-            stats_frame = ctk.CTkFrame(top_frame, fg_color="#FFFFFF", corner_radius=10)
-            stats_frame.pack(side="right")
-            
-            self.crear_panel_estadisticas(stats_frame)
+
             
             # Tabla de pagos
             self.tabla_frame = ctk.CTkFrame(self, fg_color="#FFFFFF", corner_radius=10)
@@ -256,6 +252,17 @@ class GestionPagos(ctk.CTkFrame):
             # Bind de eventos
             self.tabla.bind("<Double-1>", self.mostrar_detalles_completos)
             
+            # Panel de estadísticas inferior (similar a stock_management)
+            stats_frame = ctk.CTkFrame(self, fg_color="#E8F5E8", corner_radius=10)
+            stats_frame.pack(fill="x", padx=20, pady=(0, 20))
+            self.stats_label = ctk.CTkLabel(
+                stats_frame,
+                text="🔄 Cargando estadísticas de pagos...",
+                font=("Quicksand", 12, "bold"),
+                text_color="#2E6B5C"
+            )
+            self.stats_label.pack(padx=20, pady=10)
+            
             # Cargar datos
             self.cargar_datos()
             
@@ -296,71 +303,43 @@ class GestionPagos(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror("Error", f"Error al inicializar: {str(e)}")
     
-    def crear_panel_estadisticas(self, parent):
-        """Crear panel de estadísticas"""
-        try:
-            ctk.CTkLabel(
-                parent,
-                text="📊 Estadísticas",
-                font=("Quicksand", 16, "bold"),
-                text_color="#2E6B5C"
-            ).pack(pady=(15, 10))
-            
-            stats_grid = ctk.CTkFrame(parent, fg_color="#FFFFFF")
-            stats_grid.pack(padx=15, pady=(0, 15))
-            
-            # Inicializar labels de estadísticas
-            self.stats_labels = {}
-            
-            stats_info = [
-                ("total_pagos", "Total Pagos:", "0"),
-                ("completados", "Completados:", "0"),
-                ("pendientes", "Pendientes:", "0"),
-                ("monto_total", "Monto Total:", "S/ 0.00")
-            ]
-            
-            for i, (key, label, default) in enumerate(stats_info):
-                ctk.CTkLabel(
-                    stats_grid,
-                    text=label,
-                    font=("Quicksand", 10, "bold"),
-                    text_color="#2E6B5C"
-                ).grid(row=i, column=0, sticky="w", padx=(10, 5), pady=2)
-                
-                self.stats_labels[key] = ctk.CTkLabel(
-                    stats_grid,
-                    text=default,
-                    font=("Quicksand", 10),
-                    text_color="#000000"
-                )
-                self.stats_labels[key].grid(row=i, column=1, sticky="e", padx=(5, 10), pady=2)
-                
-        except Exception as e:
-            print(f"Error al crear panel de estadísticas: {str(e)}")
-    
     def actualizar_estadisticas(self):
         """Actualizar las estadísticas mostradas"""
         try:
             self.estadisticas = obtener_estadisticas_pagos()
             
-            if self.estadisticas:
+            if self.estadisticas and self.pagos:
                 overview = self.estadisticas.get('overview', {})
                 
-                self.stats_labels['total_pagos'].configure(
-                    text=str(overview.get('total_payments', 0))
-                )
-                self.stats_labels['completados'].configure(
-                    text=str(len([p for p in self.pagos if p.get('estado_pago') == EstadosPago.COMPLETADO]))
-                )
-                self.stats_labels['pendientes'].configure(
-                    text=str(len([p for p in self.pagos if p.get('estado_pago') == 'pendiente']))
-                )
-                self.stats_labels['monto_total'].configure(
-                    text=f"S/ {overview.get('total_amount', 0):.2f}"
-                )
+                # Contar estados de pagos usando los datos reales
+                total_pagos = len(self.pagos)
+                completados = len([p for p in self.pagos if p.get('estado_pago') == 'completado'])
+                pendientes = len([p for p in self.pagos if p.get('estado_pago') == 'pendiente'])
+                cancelados = len([p for p in self.pagos if p.get('estado_pago') == 'cancelado'])
+                
+                # Calcular monto total SOLO de los pagos completados
+                monto_total = 0.0
+                for pago in self.pagos:
+                    if pago.get('estado_pago') == 'completado':  # Solo contar pagos completados
+                        try:
+                            monto = float(pago.get('monto_pago', 0)) if pago.get('monto_pago') is not None else 0.0
+                            monto_total += monto
+                        except (ValueError, TypeError):
+                            continue
+                
+                stats_text = (f"📊 Total: {total_pagos} pagos | "
+                             f"✅ Completados: {completados} | "
+                             f"⏳ Pendientes: {pendientes} | "
+                             f"❌ Cancelados: {cancelados} | "
+                             f"💰 Monto Total: S/ {monto_total:.2f}")
+                
+                self.stats_label.configure(text=stats_text)
+            else:
+                self.stats_label.configure(text="❌ Error al cargar estadísticas")
                 
         except Exception as e:
             print(f"Error al actualizar estadísticas: {str(e)}")
+            self.stats_label.configure(text="❌ Error al cargar estadísticas")
     
     def cargar_datos(self):
         """Cargar datos de pagos desde la API"""
@@ -453,7 +432,10 @@ class GestionPagos(ctk.CTkFrame):
                 cliente_nombre = f"{nombre} {apellidos}".strip()
                 if not cliente_nombre:
                     cliente_nombre = usuario_info.get('email', 'Cliente desconocido')
-                numero_pedido = pedido_info.get('numero_pedido', '') or f"PED-{pedido_info.get('id_pedido', '')}"
+                numero_pedido = (pago.get('codigo_pedido') or 
+                               pedido_info.get('codigo_pedido') or 
+                               pedido_info.get('numero_pedido', '') or 
+                               f"PED-{pedido_info.get('id_pedido', '')}")
                     
                 if busqueda and not any(
                     busqueda in str(valor).lower()
@@ -753,7 +735,7 @@ class DetallesPagoCompletoDialog:
             
             ctk.CTkLabel(
                 card_pedido,
-                text=f"#{pedido.get('id_pedido', 'N/A')}",
+                text=pedido.get('codigo_pedido', f"#{pedido.get('id_pedido', 'N/A')}"),
                 font=("Quicksand", 14, "bold"),
                 text_color="#000000"
             ).pack(pady=2)
@@ -1011,7 +993,8 @@ class DetallesPagoCompletoDialog:
         try:
             from tkinter import messagebox
             # Por ahora, mostrar información básica del pedido
-            info = f"Pedido #{pedido.get('id_pedido', 'N/A')}\n"
+            codigo = pedido.get('codigo_pedido', f"#{pedido.get('id_pedido', 'N/A')}")
+            info = f"Pedido {codigo}\n"
             info += f"Estado: {pedido.get('estado', 'N/A')}\n"
             info += f"Fecha: {DateTimeHelper.format_datetime(pedido.get('fecha_pedido', ''))}\n"
             info += f"Total: S/ {float(pedido.get('monto_total', 0)):.2f}\n"
@@ -1080,7 +1063,9 @@ class DetallesPagoCompletoDialog:
                 from src.interfaces.management.orders_management import DetallesPedidoDialog
                 DetallesPedidoDialog(self.parent, pedido_completo)
             else:
-                messagebox.showerror("Error", f"No se encontró el pedido #{pedido_id} en la lista local.")
+                # Intentar obtener el código del pedido del contexto si está disponible
+                codigo_display = f"#{pedido_id}"
+                messagebox.showerror("Error", f"No se encontró el pedido {codigo_display} en la lista local.")
                 
         except Exception as e:
             print(f"Error al buscar pedido local: {e}")
@@ -1151,9 +1136,13 @@ class EstadoPagoDialog:
             info_frame = ctk.CTkFrame(main_frame, fg_color="#F5F5F5")
             info_frame.pack(fill="x", padx=20, pady=(0, 20))
             
+            # Obtener información del pedido
+            pedido_info = pago.get('pedido', {})
+            codigo_pedido = pago.get('codigo_pedido', pedido_info.get('codigo_pedido', f"#{pago.get('pedidos_id_pedido', 'N/A')}"))
+            
             ctk.CTkLabel(
                 info_frame,
-                text=f"Pago #{pago.get('id_pago', 'N/A')} - Pedido #{pago.get('pedidos_id_pedido', pago.get('pedido', {}).get('id_pedido', 'N/A'))}",
+                text=f"Pago #{pago.get('id_pago', 'N/A')} - Pedido {codigo_pedido}",
                 font=("Quicksand", 12, "bold"),
                 text_color="#2E6B5C"
             ).pack(pady=10)

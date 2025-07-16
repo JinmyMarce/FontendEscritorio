@@ -426,7 +426,7 @@ class GestionPedidos(ctk.CTkFrame):
 
             # Tabla
             columns = (
-                "id_pedido", "cliente", "productos", "cantidades", "monto_total", "estado"
+                "id_pedido", "codigo_pedido", "cliente", "productos", "cantidades", "monto_total", "estado"
             )
             self.tabla = ttk.Treeview(
                 table_frame,
@@ -437,6 +437,7 @@ class GestionPedidos(ctk.CTkFrame):
             )
             # Configurar columnas
             self.tabla.heading("id_pedido", text="")
+            self.tabla.heading("codigo_pedido", text="Código de Pedido")
             self.tabla.heading("cliente", text="Cliente")
             self.tabla.heading("productos", text="Productos")
             self.tabla.heading("cantidades", text="Cantidades")
@@ -444,11 +445,12 @@ class GestionPedidos(ctk.CTkFrame):
             self.tabla.heading("estado", text="Estado del Pedido")
             # Configurar anchos
             self.tabla.column("id_pedido", width=0, stretch=False)  # Oculta visualmente
-            self.tabla.column("cliente", width=200)
-            self.tabla.column("productos", width=220)
-            self.tabla.column("cantidades", width=120, anchor="center")
+            self.tabla.column("codigo_pedido", width=150, anchor="center")
+            self.tabla.column("cliente", width=180)
+            self.tabla.column("productos", width=200)
+            self.tabla.column("cantidades", width=100, anchor="center")
             self.tabla.column("monto_total", width=100, anchor="center")
-            self.tabla.column("estado", width=100, anchor="center")
+            self.tabla.column("estado", width=120, anchor="center")
 
             # Scrollbar personalizado
             scrollbar = ttk.Scrollbar(
@@ -525,11 +527,16 @@ class GestionPedidos(ctk.CTkFrame):
                 # Configurar tags para el estado
                 estado_migrado = EstadosDeprecados.migrar_estado(pedido["estado"])
                 tags = (estado_migrado.replace(" ", "_"),)
+                
+                # Obtener código del pedido o generar uno temporal si no existe
+                codigo_pedido = pedido.get("codigo_pedido", f"PED-{pedido.get('id_pedido', '')}")
+                
                 self.tabla.insert(
                     "",
                     "end",
                     values=(
                         pedido.get("id_pedido", ""),
+                        codigo_pedido,
                         cliente,
                         productos_str,
                         cantidades_str,
@@ -589,9 +596,13 @@ class GestionPedidos(ctk.CTkFrame):
                 estado_migrado = EstadosDeprecados.migrar_estado(pedido["estado"])
                 if estado != "Todos" and estado_migrado != estado:
                     continue
+                
+                # Obtener código del pedido o generar uno temporal si no existe
+                codigo_pedido = pedido.get("codigo_pedido", f"PED-{pedido.get('id_pedido', '')}")
                     
                 valores_busqueda = [
                     pedido.get("id_pedido", ""),
+                    codigo_pedido,
                     cliente,
                     productos_str,
                     cantidades_str,
@@ -610,6 +621,7 @@ class GestionPedidos(ctk.CTkFrame):
                     "end",
                     values=(
                         pedido.get("id_pedido", ""),
+                        codigo_pedido,
                         cliente,
                         productos_str,
                         cantidades_str,
@@ -688,9 +700,12 @@ class GestionPedidos(ctk.CTkFrame):
             dialog.geometry(f"400x250+{x}+{y}")
             
             # Información del pedido
+            pedido_info = self.obtener_pedido_por_id(pedido_id)
+            codigo_pedido = pedido_info.get("codigo_pedido", f"PED-{pedido_id}") if pedido_info else f"PED-{pedido_id}"
+            
             ctk.CTkLabel(
                 dialog, 
-                text=f"Pedido #{pedido_id}", 
+                text=f"Pedido {codigo_pedido}", 
                 font=("Quicksand", 16, "bold"),
                 text_color="#2E6B5C"
             ).pack(pady=10)
@@ -853,6 +868,13 @@ class GestionPedidos(ctk.CTkFrame):
                 )
         except Exception as e:
             messagebox.showerror("Error", f"Error al volver a clientes: {str(e)}")
+    
+    def obtener_pedido_por_id(self, pedido_id):
+        """Obtener un pedido específico por ID de la lista cargada"""
+        for pedido in self.pedidos:
+            if str(pedido.get("id_pedido")) == str(pedido_id):
+                return pedido
+        return None
 
 class PedidoDialog:
     def __init__(self, parent, title):
@@ -1338,7 +1360,8 @@ class DetallesPedidoDialog:
         try:
             # Crear ventana de diálogo
             self.dialog = ctk.CTkToplevel(parent)
-            self.dialog.title(f"Detalles del Pedido {pedido['id_pedido']}")
+            codigo_pedido = pedido.get('codigo_pedido', f"PED-{pedido.get('id_pedido', '')}")
+            self.dialog.title(f"Detalles del Pedido {codigo_pedido}")
             self.dialog.geometry("600x500")
             self.dialog.resizable(False, False)
             
@@ -1357,9 +1380,10 @@ class DetallesPedidoDialog:
             main_frame.pack(fill="both", expand=True, padx=12, pady=12)
             
             # Título centrado y más abajo del borde superior
+            codigo_pedido = pedido.get('codigo_pedido', f"PED-{pedido.get('id_pedido', '')}")
             ctk.CTkLabel(
                 main_frame,
-                text="Detalles del Pedido",
+                text=f"Detalles del Pedido {codigo_pedido}",
                 font=("Quicksand", 18, "bold"),
                 text_color="#2E6B5C"
             ).pack(anchor="center", pady=(12, 4))
