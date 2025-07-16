@@ -43,6 +43,38 @@ class AnalysisPanel(ctk.CTkFrame):
         )
         self.title_label.pack(side="left")
         
+        # Frame para botones pequeños en el header (lado derecho)
+        self.header_buttons_frame = ctk.CTkFrame(self.header_frame, fg_color="transparent")
+        self.header_buttons_frame.pack(side="right")
+        
+        # Botón exportar (más pequeño)
+        self.export_button = ctk.CTkButton(
+            self.header_buttons_frame,
+            text="💾 PNG",
+            command=self.export_chart,
+            width=70,
+            height=28,
+            font=("Arial", 10, "bold"),
+            fg_color="#2563EB",
+            hover_color="#1D4ED8",
+            corner_radius=6
+        )
+        self.export_button.pack(side="right", padx=(5, 0))
+        
+        # Botón ver en detalle (más pequeño)
+        self.detail_button = ctk.CTkButton(
+            self.header_buttons_frame,
+            text="🔍 Detalle",
+            command=self.show_detail_view,
+            width=70,
+            height=28,
+            font=("Arial", 10, "bold"),
+            fg_color="#16A34A",
+            hover_color="#15803D",
+            corner_radius=6
+        )
+        self.detail_button.pack(side="right", padx=(0, 5))
+        
         # Área del gráfico principal
         self.chart_container = ctk.CTkFrame(
             self,
@@ -53,50 +85,6 @@ class AnalysisPanel(ctk.CTkFrame):
         
         # Placeholder inicial
         self.show_placeholder()
-        
-        # Panel de controles (botones)
-        self.controls_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.controls_frame.pack(fill="x", padx=20, pady=(0, 20))
-        
-        # Botón ver en detalle
-        self.detail_button = ctk.CTkButton(
-            self.controls_frame,
-            text="🔍 Ver en detalle",
-            command=self.show_detail_view,
-            width=140,
-            height=36,
-            font=("Arial", 12, "bold"),
-            fg_color="#16A34A",
-            hover_color="#15803D",
-            corner_radius=8
-        )
-        self.detail_button.pack(side="left", padx=(0, 10))
-        
-        # Botón exportar
-        self.export_button = ctk.CTkButton(
-            self.controls_frame,
-            text="💾 Exportar a PNG",
-            command=self.export_chart,
-            width=140,
-            height=36,
-            font=("Arial", 12, "bold"),
-            fg_color="#2563EB",
-            hover_color="#1D4ED8",
-            corner_radius=8
-        )
-        self.export_button.pack(side="left")
-        
-        # Información del gráfico actual (lado derecho)
-        self.info_frame = ctk.CTkFrame(self.controls_frame, fg_color="transparent")
-        self.info_frame.pack(side="right")
-        
-        self.chart_info_label = ctk.CTkLabel(
-            self.info_frame,
-            text="Tendencia de ventas por día",
-            font=("Arial", 12),
-            text_color="#6B7280"
-        )
-        self.chart_info_label.pack()
     
     def show_placeholder(self):
         """Muestra el placeholder mientras se cargan los datos"""
@@ -118,18 +106,6 @@ class AnalysisPanel(ctk.CTkFrame):
         try:
             self.current_chart_type = chart_type
             self.chart_data = chart_data
-            
-            # Actualizar información del gráfico
-            chart_descriptions = {
-                "ventas_diarias": "Tendencia de ventas por día",
-                "ventas_mensuales": "Comparativa de ventas mensuales",
-                "productos_vendidos": "Ranking de productos más vendidos",
-                "estados_pedidos": "Distribución de estados de pedidos"
-            }
-            
-            self.chart_info_label.configure(
-                text=chart_descriptions.get(chart_type, "Análisis estadístico")
-            )
             
             # Crear el gráfico
             self.create_main_chart(chart_data)
