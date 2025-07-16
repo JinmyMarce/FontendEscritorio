@@ -41,10 +41,13 @@ class ReporteUsuario(ctk.CTkFrame):
         self.email_entry = ctk.CTkEntry(
             search_frame,
             textvariable=self.email_var,
-            width=300,
-            placeholder_text="Ingrese el email del usuario...",
-            border_width=0,
-            fg_color="#F5F5F5"
+            width=220,
+            height=30,
+            placeholder_text="Ingrese el email...",
+            border_width=1,
+            border_color="#E0E0E0",
+            fg_color="#F9F9F9",
+            font=("Quicksand", 10)
         )
         self.email_entry.pack(side="left", padx=10, pady=20)
         

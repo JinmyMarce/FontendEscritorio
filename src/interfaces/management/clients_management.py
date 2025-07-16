@@ -92,11 +92,13 @@ class GestionClientes(ctk.CTkFrame):
             search_entry = ctk.CTkEntry(
                 filter_frame,
                 textvariable=self.search_var,
-                width=200,
-                placeholder_text="Escriba para buscar...",
+                width=160,
+                height=30,
+                placeholder_text="Buscar...",
                 border_width=1,
                 border_color="#E0E0E0",
-                fg_color="#F9F9F9"
+                fg_color="#F9F9F9",
+                font=("Quicksand", 10)
             )
             search_entry.pack(side="left", padx=(0, 15))
             

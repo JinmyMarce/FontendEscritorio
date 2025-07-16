@@ -77,11 +77,15 @@ class GestionNotificaciones(ctk.CTkFrame):
             search_entry = ctk.CTkEntry(
                 search_frame,
                 textvariable=self.search_var,
-                placeholder_text="Buscar por contenido...",
-                border_width=0,
-                fg_color="#F5F5F5"
+                placeholder_text="Buscar...",
+                border_width=1,
+                border_color="#E0E0E0",
+                fg_color="#F9F9F9",
+                width=180,
+                height=30,
+                font=("Quicksand", 10)
             )
-            search_entry.grid(row=0, column=1, sticky="ew", padx=5, pady=10)
+            search_entry.grid(row=0, column=1, sticky="w", padx=5, pady=10)
             
             # Separador
             ctk.CTkFrame(
