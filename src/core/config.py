@@ -12,14 +12,14 @@ from .status_config import (
 )
 
 # Configuración de la API
-#API_BASE_URL = os.getenv('API_BASE_URL', 'https://api.fresaterra.shop/api/v1')
-API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000/api/v1')
+API_BASE_URL = os.getenv('API_BASE_URL', 'https://api.fresaterra.shop/api/v1')
+#API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000/api/v1')
 
 # Endpoints de Autenticación
 AUTH_ENDPOINTS = {
-    'login': 'http://localhost:8000/api/v1/admin/login',  # <-- Cambiado para admin
-    'logout': 'http://localhost:8000/api/v1/auth/logout',
-    'refresh': 'http://localhost:8000/api/v1/auth/refresh',
+    'login': 'https://api.fresaterra.shop/api/v1/admin/login',  # <-- Cambiado para admin
+    'logout': 'https://api.fresaterra.shop/api/v1/logout',
+    'refresh': 'https://api.fresaterra.shop/api/v1/refresh',
 }
 
 # Endpoints de Clientes
