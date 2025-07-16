@@ -132,6 +132,31 @@ class APIHandler:
         except Exception as e:
             print(f"APIHandler exception: {e}")
             return {'status_code': 500, 'data': {'error': f'Error interno: {str(e)}'}}
+    
+    @staticmethod
+    def get(url, params=None, headers=None):
+        """Método GET específico"""
+        return APIHandler.make_request('GET', url, params=params, headers=headers)
+    
+    @staticmethod
+    def post(url, data=None, headers=None, files=None):
+        """Método POST específico"""
+        return APIHandler.make_request('POST', url, data=data, headers=headers, files=files)
+    
+    @staticmethod
+    def put(url, data=None, headers=None, files=None):
+        """Método PUT específico"""
+        return APIHandler.make_request('PUT', url, data=data, headers=headers, files=files)
+    
+    @staticmethod
+    def patch(url, data=None, headers=None, files=None):
+        """Método PATCH específico"""
+        return APIHandler.make_request('PATCH', url, data=data, headers=headers, files=files)
+    
+    @staticmethod
+    def delete(url, headers=None):
+        """Método DELETE específico"""
+        return APIHandler.make_request('DELETE', url, headers=headers)
 
 class UIHelper:
     @staticmethod

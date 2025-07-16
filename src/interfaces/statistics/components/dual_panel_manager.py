@@ -82,6 +82,10 @@ class DualPanelManager(ctk.CTkFrame):
         if period_text and hasattr(self, 'analysis_panel'):
             self.analysis_panel.update_period_text(period_text)
         
+        # Actualizar el período en el panel de reportes
+        if hasattr(self, 'reports_panel'):
+            self.reports_panel.set_current_period(fecha_inicio, fecha_fin)
+        
         # ¡IMPORTANTE! Limpiar caché de datos para forzar recarga desde la API
         self.charts_data.clear()
         print(f"🧹 Caché de gráficos limpiado - se recargarán desde la API")
