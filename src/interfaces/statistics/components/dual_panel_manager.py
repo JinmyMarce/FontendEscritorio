@@ -201,3 +201,12 @@ class DualPanelManager(ctk.CTkFrame):
             self.charts_data.clear()  # Limpiar caché
             self.load_chart_data(self.get_current_chart_type(), fecha_inicio, fecha_fin)
             self.preload_all_charts(fecha_inicio, fecha_fin)
+    
+    def update_period_constraints(self, fecha_inicio: str, fecha_fin: str):
+        """Actualiza las restricciones de período en la navegación de gráficos"""
+        try:
+            if hasattr(self, 'chart_navigation'):
+                self.chart_navigation.update_period_from_dates(fecha_inicio, fecha_fin)
+                print(f"🔒 Restricciones de período actualizadas: {fecha_inicio} a {fecha_fin}")
+        except Exception as e:
+            print(f"Error al actualizar restricciones de período: {str(e)}")

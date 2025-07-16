@@ -100,6 +100,9 @@ class EstadisticasVentas(ctk.CTkFrame):
             if hasattr(self, 'dual_panel_manager'):
                 period_text = self.controls.get_selected_period_text()
                 self.dual_panel_manager.update_period(fecha_inicio, fecha_fin, period_text)
+                
+                # Actualizar restricciones de período en la navegación
+                self.dual_panel_manager.update_period_constraints(fecha_inicio, fecha_fin)
             
         except Exception as e:
             print(f"Error al actualizar datos: {str(e)}")

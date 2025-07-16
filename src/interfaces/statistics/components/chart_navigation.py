@@ -120,3 +120,66 @@ class ChartNavigation(ctk.CTkFrame):
     def get_selected_chart(self) -> str:
         """Retorna el tipo de gráfico seleccionado"""
         return self.current_selection
+    
+    def update_period_constraints(self, period_months: int):
+        """Actualiza las restricciones de los botones basándose en el período seleccionado"""
+        try:
+            # Deshabilitar "Ventas mensuales" si el período es menor a 3 meses
+            if "ventas_mensuales" in self.nav_buttons:
+                button = self.nav_buttons["ventas_mensuales"]
+                
+                if period_months < 3:
+                    # Deshabilitar botón
+                    button.configure(
+                        fg_color="#9CA3AF",  # Color gris
+                        hover_color="#9CA3AF",
+                        text_color="#6B7280",
+                        border_color="#9CA3AF",
+                        state="disabled"
+                    )
+                    
+                    # Si estaba seleccionado, cambiar a "productos_vendidos"
+                    if self.current_selection == "ventas_mensuales":
+                        self.select_chart("productos_vendidos")
+                        
+                else:
+                    # Rehabilitar botón con colores originales
+                    chart_info = self.chart_types["ventas_mensuales"]
+                    button.configure(
+                        fg_color=chart_info['color'],
+                        hover_color=self._darken_color(chart_info['color']),
+                        text_color="#FFFFFF",
+                        border_color=chart_info['color'],
+                        state="normal"
+                    )
+            
+            print(f"📊 Restricciones de período actualizadas: {period_months} meses")
+            
+        except Exception as e:
+            print(f"Error al actualizar restricciones de período: {str(e)}")
+    
+    def _calculate_months_difference(self, start_date: str, end_date: str) -> int:
+        """Calcula la diferencia en meses entre dos fechas"""
+        try:
+            from datetime import datetime
+            
+            start = datetime.strptime(start_date, "%Y-%m-%d")
+            end = datetime.strptime(end_date, "%Y-%m-%d")
+            
+            # Calcular diferencia en meses
+            months_diff = (end.year - start.year) * 12 + (end.month - start.month)
+            
+            # Si la diferencia incluye días adicionales, considerar como mes completo
+            if end.day > start.day:
+                months_diff += 1
+                
+            return max(1, months_diff)  # Mínimo 1 mes
+            
+        except Exception as e:
+            print(f"Error al calcular diferencia de meses: {str(e)}")
+            return 1
+    
+    def update_period_from_dates(self, start_date: str, end_date: str):
+        """Actualiza las restricciones basándose en fechas de inicio y fin"""
+        months_diff = self._calculate_months_difference(start_date, end_date)
+        self.update_period_constraints(months_diff)
